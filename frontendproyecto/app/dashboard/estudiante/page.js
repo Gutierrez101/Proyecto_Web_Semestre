@@ -10,7 +10,7 @@ const mockClasses = [
 export default function StudentPage() {
   return (
     <section>
-      <h2 className="text-2xl font-bold mb-4">Tus Clases</h2>
+      <h2 className="text-2xl font-bold mb-4 text-blue-700">Tus Clases</h2>
       <ClassGrid classes={mockClasses} />
     </section>
   );

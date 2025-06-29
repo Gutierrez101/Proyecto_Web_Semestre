@@ -10,8 +10,8 @@ const mockTeacherClasses = [
 export default function TeacherPage() {
   return (
     <section>
-      <h2 className="text-xl font-semibold mb-4">Panel de Clase</h2>
-      <table className="w-full text-sm">
+      <h2 className="text-xl font-semibold mb-4 text-black">Panel de Clase</h2>
+      <table className="w-full text-sm text-gray-700">
         <tbody>
           {mockTeacherClasses.map((c) => (
             <ClassRow key={c.id} studyClass={c} />
