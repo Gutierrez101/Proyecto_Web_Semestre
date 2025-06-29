@@ -31,8 +31,7 @@ class LoginController {
     const user = new Usuario(email, password);
 
     if (user.validar()) {
-      alert('Bienvenido ' + email);
-      // Aquí podrías redirigir, guardar token, etc.
+      window.location.href = 'dashboard.html'; // Redirige al dashboard
     } else {
       alert('Correo o contraseña incorrectos');
     }
