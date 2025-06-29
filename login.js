@@ -31,7 +31,7 @@ class LoginController {
     const user = new Usuario(email, password);
 
     if (user.validar()) {
-      window.location.href = 'dashboard.html'; // Redirige al dashboard
+      window.location.href = 'dashboard.html'; 
     } else {
       alert('Correo o contraseña incorrectos');
     }
