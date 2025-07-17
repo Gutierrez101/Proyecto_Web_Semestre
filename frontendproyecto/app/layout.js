@@ -8,7 +8,7 @@ export default function RootLayout({ children }) {
       <body className="flex flex-col min-h-screen">
         <header className="bg-blue-900 text-white p-4 flex justify-between items-center">
           <div className="flex items-center">
-            <img src="/mindflow-logo.svg" alt="Logo" className="h-8" />
+            <img src="/default-avatar.png" alt="Logo" className="h-8" />
             <span className="ml-2 text-xl font-semibold">Dashboard Estudiante</span>
           </div>
         </header>
