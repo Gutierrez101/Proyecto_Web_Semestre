@@ -4,7 +4,7 @@ from rest_framework import status
 from rest_framework.authtoken.models import Token
 
 from .serializers import RegisterSerializer, LoginSerializer
-
+#Poner en el username P es Profesor, E es estudiante y A es administrador es necesario poner estas letras en el username para que se pueda identificar el tipo de usuario
 class RegisterView(APIView):
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
