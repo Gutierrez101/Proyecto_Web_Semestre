@@ -15,18 +15,25 @@ export default function StudentPage() {
       <Navbar />
       <main>
         <div
-          className="flex justify-center items-center h-100 bg-cover bg-top"
-          style={{ backgroundImage: "url('/logo_estudiante.jpg')" }}
+          className="flex justify-center items-center bg-cover bg-top"
+            style={{
+            backgroundImage: "url('/logo_estudiante.jpg')",
+            minHeight: "420px"
+          }}
         >
-          <h1 className="text-3xl font-bold text-gray-900 bg-white bg-opacity-80 px-6 py-4 rounded-xl shadow">
+          <h1 className="text-3xl font-bold text-gray-900 bg-white bg-opacity-80 px-6 py-4 rounded-xl shadow text-center">
             Bienvenido Nombre Estudiante
           </h1>
         </div>
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <h2 className="text-2xl font-bold mb-4 text-blue-700">Tus Clases</h2>
-        <ClassGrid classes={mockClasses} />
-      </section>
       </main>
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6"
+      style={{ backgroundColor: "#81BECE" }}>
+        <h2 className="text-2xl font-bold mb-4 text-center"
+            style={{ color: "#012E4A" }}>Tus Cursos</h2>
+        <div className="flex justify-center">
+          <ClassGrid classes={mockClasses} />
+        </div>
+      </section>
     </div>
   );
 }
