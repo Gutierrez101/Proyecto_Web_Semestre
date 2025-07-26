@@ -1,4 +1,5 @@
 'use client';
+import { Router } from 'express';
 import { useState } from 'react';
 
 export default function RegisterForm() {
@@ -35,6 +36,7 @@ export default function RegisterForm() {
       const data = await res.json();
       if (res.ok) {
         setMessage(data.message);
+        Router.push('/login');
       } else {
         const err = Object.values(data)[0];
         setError(Array.isArray(err) ? err[0] : err);
