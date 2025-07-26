@@ -1,10 +1,12 @@
 'use client';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function LoginForm() {
   const [formData, setFormData] = useState({ username: '', password: '' });
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
+  const router = useRouter();
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -22,7 +24,15 @@ export default function LoginForm() {
       });
       const data = await res.json();
       if (res.ok) {
-        setMessage(data.message + ' Token: ' + data.token);
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('username', formData.username);
+        
+        // Redirige según el tipo de usuario
+        if (formData.username.startsWith('E')) {
+          router.push('/dashboard/dashboardEstudiante');
+        } else if (formData.username.startsWith('P')) {
+          router.push('/docente');
+        }
       } else {
         setError(data.non_field_errors?.[0] || 'Error al iniciar sesión');
       }
