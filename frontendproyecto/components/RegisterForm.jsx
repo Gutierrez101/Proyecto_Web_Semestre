@@ -6,6 +6,11 @@ export default function RegisterForm() {
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
 
+  const validateUsername = (username) => {
+    const pattern = /^(E|P)\d{2}\d*$/;
+    return pattern.test(username);
+  };
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -14,6 +19,13 @@ export default function RegisterForm() {
     e.preventDefault();
     setMessage(null);
     setError(null);
+    
+    // Validación del username
+    if (!validateUsername(formData.username)) {
+      setError('El nombre de usuario debe comenzar con E (Estudiante) o P (Profesor) seguido de números (Ej: E001 o P001)');
+      return;
+    }
+
     try {
       const res = await fetch('http://localhost:8000/api/register/', {
         method: 'POST',
@@ -24,7 +36,6 @@ export default function RegisterForm() {
       if (res.ok) {
         setMessage(data.message);
       } else {
-        // Muestra primer error de validación
         const err = Object.values(data)[0];
         setError(Array.isArray(err) ? err[0] : err);
       }
