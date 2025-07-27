@@ -1,27 +1,24 @@
-import { Card } from "../ui/Card";
+'use client';
 
-export default function ClassGrid({ classes }) {
+export default function ClassGrid({ classes = [] }) {
+  if (!classes.length) {
+    return (
+      <div className="text-center text-gray-600">
+        No hay clases disponibles.
+      </div>
+    );
+  }
+
   return (
-    <div className="grid md:grid-cols-4 gap-4">
-      {classes.map((c, idx) => (
-        <Card key={idx}>
-          <h3 className="font-bold text-lg text-green-700">{c.tema}</h3>
-          <ul className="text-sm text-black">
-            {c.recursos.map((recurso, i) => (
-              <li key={i}>{recurso}</li>
-            ))}
-            {c.tema === "Notas" && (
-              <li>
-                <a
-                  href="/dashboard/dashboardEstudiante/notasEstudiante"
-                  className="text-blue-600 underline"
-                >
-                  Ver notas
-                </a>
-              </li>
-            )}
-          </ul>
-        </Card>
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+      {classes.map((cl) => (
+        <div
+          key={cl.id}
+          className="bg-white p-4 rounded shadow cursor-pointer hover:bg-gray-100"
+        >
+          <h3 className="text-lg font-semibold">{cl.title}</h3>
+          {/* Aquí puedes agregar más información de la clase */}
+        </div>
       ))}
     </div>
   );
