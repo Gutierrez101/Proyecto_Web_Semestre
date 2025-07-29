@@ -73,10 +73,18 @@ class RegisterView(APIView):
         return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class CursoCreateView(APIView):
+
+class CursoListView(APIView):
     permission_classes = [IsAuthenticated]
 
+    def get(self, request):
+        """Obtener todos los cursos del profesor"""
+        cursos = Curso.objects.filter(profesor=request.user)
+        serializer = CursoSerializer(cursos, many=True)
+        return Response(serializer.data)
+
     def post(self, request):
+        """Crear nuevo curso"""
         try:
             data = request.data.copy()
             data['profesor'] = request.user.id
@@ -86,7 +94,6 @@ class CursoCreateView(APIView):
             serializer.save()
             
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-
         except ValidationError as e:
             return Response(
                 {'error': 'Error de validación', 'detalles': e.detail},
@@ -98,13 +105,7 @@ class CursoCreateView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-class CursoListView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        cursos = Curso.objects.filter(profesor=request.user)
-        serializer = CursoSerializer(cursos, many=True)
-        return Response(serializer.data)
+# Elimina la clase CursoCreateView ya que ahora está integrada en CursoListView
 
 
 class CursoDetailView(APIView):

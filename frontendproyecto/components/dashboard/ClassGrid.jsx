@@ -1,5 +1,12 @@
 'use client';
 
+// Define el componente Card primero
+const Card = ({ children }) => (
+  <div className="bg-white p-4 rounded-lg shadow-md hover:shadow-lg transition-shadow">
+    {children}
+  </div>
+);
+
 export default function ClassGrid({ classes }) {
   return (
     <div className="grid md:grid-cols-4 gap-4">
