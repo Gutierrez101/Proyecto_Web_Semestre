@@ -65,6 +65,11 @@ export default function Crearcurso() {
         } finally {
             setLoading(false);
         }
+      console.log('Datos enviados al crear curso:', {
+       nombre: courseData.nombre,
+        descripcion: courseData.descripcion,
+        codigo: courseData.codigo.toUpperCase()
+      });
     };
 
     return (
