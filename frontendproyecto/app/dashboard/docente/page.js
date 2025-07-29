@@ -1,33 +1,52 @@
 'use client';
 import ClassGrid from "@/components/dashboard/ClassGrid";
 import NavbarDocente from "@/components/layout/NavbarDocente";
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-
-// Datos de ejemplo mejor estructurados
-const mockClasses = [
-  { 
-    tema: "Introducción a la Programación",
-    recursos: ["Material de clase", "Ejercicios prácticos", "Guía de estudio"]
-  },
-  { 
-    tema: "Algoritmos Avanzados",
-    recursos: ["Presentaciones", "Proyectos", "Casos de estudio"]
-  }
-];
 
 export default function DocentePage() {
   const router = useRouter();
+  const [cursos, setCursos] = useState([]);
+  const [loading, setLoading] = useState(true);
 
+  // Función para cargar cursos
+  const fetchCursos = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        router.push('/login');
+        return;
+      }
+
+      const response = await fetch(`http://localhost:8000/api/cursos/?timestamp=${Date.now()}`, {
+        headers: {
+          'Authorization': `Token ${token}`
+        }
+      });
+
+      if (!response.ok) throw new Error('Error al obtener cursos');
+      
+      const data = await response.json();
+      setCursos(data);
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Cargar cursos al iniciar
   useEffect(() => {
-    // Verificar autenticación y tipo de usuario
-    const token = localStorage.getItem('token');
-    const username = localStorage.getItem('username');
+    fetchCursos();
     
-    if (!token || !username?.startsWith('P')) {
+    // Verificar autenticación
+    const username = localStorage.getItem('username');
+    if (!username?.startsWith('P')) {
       router.push('/login');
     }
   }, []);
+
+  if (loading) return <div className="min-h-screen bg-gray-100 flex items-center justify-center">Cargando...</div>;
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -43,9 +62,20 @@ export default function DocentePage() {
           <h2 className="text-2xl font-bold mb-4 text-center text-[#012E4A]">
             Tus Cursos
           </h2>
-          <div className="flex justify-center">
-            <ClassGrid classes={mockClasses} />
-          </div>
+          {cursos.length === 0 ? (
+            <p className="text-center text-gray-700">No tienes cursos creados aún</p>
+          ) : (
+            <div className="flex justify-center">
+              <ClassGrid classes={cursos.map(curso => ({
+                tema: curso.nombre,
+                recursos: [
+                  `Código: ${curso.codigo}`,
+                  `Descripción: ${curso.descripcion}`,
+                  `Creado: ${new Date(curso.fecha_creacion).toLocaleDateString()}`
+                ]
+              }))} />
+            </div>
+          )}
         </section>
       </main>
     </div>

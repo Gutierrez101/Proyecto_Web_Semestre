@@ -1,12 +1,45 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.authtoken.views import ObtainAuthToken
+from rest_framework.permissions import AllowAny
 from rest_framework import status
+from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.authtoken.models import Token
-from django.contrib.auth.models import User
-from .serializers import RegisterSerializer, LoginSerializer
+#from django.contrib.auth.models import User
+#from django.db import IntegrityError
+from .serializers import RegisterSerializer, CursoSerializer
+from .models import Curso
+from django.shortcuts import get_object_or_404
 import random
 
+
+class CustomLoginView(ObtainAuthToken):
+    permission_classes = [AllowAny]
+    
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data,
+                                         context={'request': request})
+        if not serializer.is_valid():
+            return Response(
+                {'error': 'Credenciales inválidas'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
+        user = serializer.validated_data['user']
+        token, created = Token.objects.get_or_create(user=user)
+        
+        return Response({
+            'token': token.key,
+            'user_id': user.pk,
+            'username': user.username,
+            'user_type': 'student' if user.username.startswith('E') else 'teacher'
+        })
+
+
 class RegisterView(APIView):
+    permission_classes=[AllowAny]
+    
     def post(self, request):
         email = request.data.get('email', '').lower()
         is_student = email.endswith('@gmail.com')  # Cambia esto según tu dominio
@@ -39,21 +72,58 @@ class RegisterView(APIView):
             }, status=status.HTTP_201_CREATED)
         return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class LoginView(APIView):
+
+class CursoCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def post(self, request):
-        ser = LoginSerializer(data=request.data)
-        if ser.is_valid():
-            user = ser.validated_data['user']
-            token, _ = Token.objects.get_or_create(user=user)
+        try:
+            data = request.data.copy()
+            data['profesor'] = request.user.id
             
-            # Determinar tipo de usuario basado en el username
-            username = user.username
-            user_type = 'student' if username.startswith('E') else 'teacher'
+            serializer = CursoSerializer(data=data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
             
-            return Response({
-                'message': 'Login exitoso',
-                'token': token.key,
-                'user_type': user_type,
-                'username': username
-            }, status=status.HTTP_200_OK)
-        return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        except ValidationError as e:
+            return Response(
+                {'error': 'Error de validación', 'detalles': e.detail},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            return Response(
+                {'error': 'Error en el servidor', 'detalle': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class CursoListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        cursos = Curso.objects.filter(profesor=request.user)
+        serializer = CursoSerializer(cursos, many=True)
+        return Response(serializer.data)
+
+
+class CursoDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        curso = get_object_or_404(Curso, pk=pk, profesor=request.user)
+        serializer = CursoSerializer(curso)
+        return Response(serializer.data)
+
+    def put(self, request, pk):
+        curso = get_object_or_404(Curso, pk=pk, profesor=request.user)
+        serializer = CursoSerializer(curso, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        curso = get_object_or_404(Curso, pk=pk, profesor=request.user)
+        curso.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
