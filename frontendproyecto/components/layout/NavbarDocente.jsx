@@ -6,7 +6,6 @@ export default function NavbarDocente({ nombreEstudiante = "Nombre Docente" }) {
   const router = useRouter();
 
   const handleLogout = () => {
-    // Limpiar localStorage y redirigir
     localStorage.removeItem('token');
     localStorage.removeItem('username');
     router.push('/login');
@@ -30,8 +29,11 @@ export default function NavbarDocente({ nombreEstudiante = "Nombre Docente" }) {
           {/* Menú */}
           <div className="flex items-center gap-6">
             <span className="font-semibold">{nombreEstudiante}</span>
-            <Link href="/unirse-curso" className="px-4 py-2 rounded bg-[#81BECE] hover:bg-[#577f92] transition-colors text-sm font-medium">
-            Crear Curso
+            <Link 
+              href="/dashboard/docente/crearCursoDoc" 
+              className="px-4 py-2 rounded bg-[#81BECE] hover:bg-[#577f92] transition-colors text-sm font-medium"
+            >
+              Crear Curso
             </Link>
             <button
               className="px-4 py-2 rounded border border-[#81BECE] text-[#81BECE] hover:bg-[#012E4A] hover:text-white transition-colors text-sm font-medium"

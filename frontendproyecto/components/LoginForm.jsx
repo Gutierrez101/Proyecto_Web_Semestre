@@ -35,7 +35,7 @@ export default function LoginForm() {
         if (data.user_type === 'student') {
           router.push('/dashboard/dashboardEstudiante');
         } else {
-          router.push('/docente');
+          router.push('/dashboard/docente');
         }
       } else {
         setError(data.non_field_errors?.[0] || 'Credenciales incorrectas');
