@@ -21,7 +21,7 @@ export default function NavbarEstudiante({ nombreEstudiante = "Nombre Docente" }
             {/* Botones a la derecha */}
             <div className="flex items-center gap-6">
             <span className="font-semibold">{nombreEstudiante}</span>
-            <Link href="/unirse-curso" className="px-4 py-2 rounded bg-[#81BECE] hover:bg-[#577f92] transition-colors text-sm font-medium">
+            <Link href="/dashboard/docente/crearCursoDoc" className="px-4 py-2 rounded bg-[#81BECE] hover:bg-[#577f92] transition-colors text-sm font-medium">
             Crear Curso
             </Link>
             <button
