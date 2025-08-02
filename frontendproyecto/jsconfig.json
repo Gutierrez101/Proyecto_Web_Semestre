@@ -1,7 +1,13 @@
 {
   "compilerOptions": {
+    "baseUrl": ".",
     "paths": {
       "@/*": ["./*"]
-    }
-  }
+    },
+    "lib": ["es6", "dom"], // Añade esto para incluir definiciones de tipos de ES6 y DOM
+    "target": "es6",       // Especifica que el código objetivo es ES6
+    "module": "commonjs",  // Opcional: define el sistema de módulos
+    "skipLibCheck": true   // Opcional: evita verificar tipos en librerías
+  },
+  "exclude": ["node_modules"] // Excluye dependencias
 }

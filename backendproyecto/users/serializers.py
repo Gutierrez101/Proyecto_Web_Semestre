@@ -4,6 +4,12 @@ from rest_framework import validators
 from .models import User
 from .models import Curso
 
+
+#importaciones para talleres, videos y pruebas
+from .models import User, Curso, Video, Taller, Prueba
+
+
+
 class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -33,4 +39,71 @@ class CursoSerializer(serializers.ModelSerializer):
                 ]
             }
         }
+
+
+# modulo para talleres, videos y pruebas
+class VideoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Video
+        fields = '__all__'
+        read_only_fields = ('fecha_creacion', 'curso')
+        extra_kwargs = {
+            'archivo': {
+                'required': True,
+                'allow_null': False
+            }
+        }
+
+    def validate_archivo(self, value):
+        if not value.name.lower().endswith('.mp4'):
+            raise serializers.ValidationError("Solo se permiten archivos MP4")
+        return value
+
+# serializers.py
+class TallerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Taller
+        fields = ['id', 'titulo', 'descripcion', 'archivo', 'curso', 'fecha_creacion']
+        extra_kwargs = {
+            'curso': {'required': True},
+            'archivo': {'required': True},
+            'titulo': {'required': True},
+            'descripcion': {'required': False}  # Opcional si lo permites
+        }
+
+    def validate(self, data):
+        if not data.get('curso'):
+            raise serializers.ValidationError("Debe especificar un curso")
+        return data
+
+    def validate_archivo(self, value):
+        valid_extensions = ['.pdf', '.doc', '.docx']
+        if not any(value.name.lower().endswith(ext) for ext in valid_extensions):
+            raise serializers.ValidationError(
+                "Solo se permiten archivos PDF o Word"
+            )
+        return value
+
+class PruebaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Prueba
+        fields = '__all__'
+        extra_kwargs = {
+            'archivo_xml': {'required': True},
+            'titulo': {'required': True},
+            'descripcion': {'required': True}
+        }
+        
+    def validate_archivo_xml(self, value):
+        if not value.name.lower().endswith('.xml'):
+            raise serializers.ValidationError("Solo se permiten archivos XML")
+        
+        # Opcional: Validación básica del contenido XML
+        try:
+            from xml.etree import ElementTree
+            ElementTree.parse(value)
+        except ElementTree.ParseError:
+            raise serializers.ValidationError("El archivo XML no es válido")
+        
+        return value
 

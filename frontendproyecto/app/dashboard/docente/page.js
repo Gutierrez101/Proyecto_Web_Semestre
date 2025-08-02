@@ -1,3 +1,4 @@
+
 'use client';
 import ClassGrid from "@/components/dashboard/ClassGrid";
 import NavbarDocente from "@/components/layout/NavbarDocente";
@@ -96,14 +97,18 @@ export default function DocentePage() {
           </h2>
           {cursos.length > 0 ? (
             <div className="flex justify-center">
-              <ClassGrid classes={cursos.map(curso => ({
-                tema: curso.nombre,
-                recursos: [
-                  `Código: ${curso.codigo}`,
-                  `Descripción: ${curso.descripcion}`,
-                  `Creado: ${new Date(curso.fecha_creacion).toLocaleDateString()}`
-                ]
-              }))} />
+              <ClassGrid 
+                classes={cursos.map(curso => ({
+                  id: curso.id, // Asegúrate de pasar el ID
+                  tema: curso.nombre,
+                  recursos: [
+                    `Código: ${curso.codigo}`,
+                    `Descripción: ${curso.descripcion}`,
+                    `Creado: ${new Date(curso.fecha_creacion).toLocaleDateString()}`
+                  ]
+                }))}
+                onItemClick={(cursoId) => router.push(`/dashboard/docente/contenidoCursoDoc?curso=${cursoId}`)}
+              />
             </div>
           ) : (
             <div className="text-center py-8">
@@ -121,3 +126,6 @@ export default function DocentePage() {
     </div>
   );
 }
+
+
+

@@ -1,3 +1,4 @@
+
 'use client';
 import NavbarDocente from "@/components/layout/NavbarDocente";
 import Crearcurso from "@/components/dashboard/Docente/crearcurso"; // Asegúrate de que la ruta es correcta
