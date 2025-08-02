@@ -29,6 +29,11 @@ from users.api_views import (
     PruebaView
 )
 
+
+# Modulo para inscripcion de cursos
+from users.api_views import UnirseCursoView
+
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/register/', RegisterView.as_view(), name='api-register'),
@@ -38,6 +43,11 @@ urlpatterns = [
     path('api/cursos/<int:curso_id>/videos/', VideoView.as_view(), name='video-actividad'),
     path('api/cursos/<int:curso_id>/talleres/', TallerView.as_view(), name='taller-actividad'),
     path('api/cursos/<int:curso_id>/pruebas/', PruebaView.as_view(), name='prueba-actividad'),
+
+
+    #inscripcion de cursos
+        path('api/cursos/unirse/', UnirseCursoView.as_view(), name='unirse-curso'),
+
 ]
 
 # Solo en desarrollo: servir archivos multimedia

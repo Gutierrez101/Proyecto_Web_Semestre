@@ -17,6 +17,11 @@ class Curso(models.Model):
         related_name='cursos'
     )
     fecha_creacion = models.DateTimeField(auto_now_add=True)
+    estudiantes = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name='cursos_inscritos',
+        blank=True
+    )
 
     def __str__(self):
         return self.nombre
