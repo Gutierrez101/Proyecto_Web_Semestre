@@ -203,3 +203,23 @@ class PruebaView(ActividadesCursoView):
         return Response(serializer.data)
 
 
+
+
+# Modulo para inscripciones a cursos
+class UnirseCursoView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        codigo = request.data.get('codigo')
+        try:
+            curso = Curso.objects.get(codigo=codigo)
+            curso.estudiantes.add(request.user)
+            return Response(
+                {'mensaje': 'Te has unido al curso exitosamente'},
+                status=status.HTTP_200_OK
+            )
+        except Curso.DoesNotExist:
+            return Response(
+                {'error': 'Código de curso inválido'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
