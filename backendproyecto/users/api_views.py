@@ -1,3 +1,4 @@
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.authtoken.views import ObtainAuthToken
@@ -12,6 +13,14 @@ from .serializers import RegisterSerializer, CursoSerializer
 from .models import Curso
 from django.shortcuts import get_object_or_404
 import random
+
+
+
+#importaciones para talleres, videos y pruebas
+from .models import Curso, Video, Taller, Prueba
+from .serializers import VideoSerializer, TallerSerializer, PruebaSerializer
+
+
 
 
 class CustomLoginView(ObtainAuthToken):
@@ -128,3 +137,69 @@ class CursoDetailView(APIView):
         curso = get_object_or_404(Curso, pk=pk, profesor=request.user)
         curso.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+
+
+# Modulo para talleres, videos y pruebas
+class ActividadesCursoView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_curso(self, pk):
+        return get_object_or_404(Curso, pk=pk, profesor=self.request.user)
+
+class VideoView(ActividadesCursoView):
+    def post(self, request, curso_id):
+        curso = self.get_curso(curso_id)
+        data = request.data.copy()
+        data['curso'] = curso.id
+        
+        serializer = VideoSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def get(self, request, curso_id):
+        curso = self.get_curso(curso_id)
+        videos = Video.objects.filter(curso=curso)
+        serializer = VideoSerializer(videos, many=True)
+        return Response(serializer.data)
+
+class TallerView(ActividadesCursoView):
+    def post(self, request, curso_id):
+        curso = self.get_curso(curso_id)
+        data = request.data.copy()
+        data['curso'] = curso.id
+        
+        serializer = TallerSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def get(self, request, curso_id):
+        curso = self.get_curso(curso_id)
+        talleres = Taller.objects.filter(curso=curso)
+        serializer = TallerSerializer(talleres, many=True)
+        return Response(serializer.data)
+
+class PruebaView(ActividadesCursoView):
+    def post(self, request, curso_id):
+        curso = self.get_curso(curso_id)
+        data = request.data.copy()
+        data['curso'] = curso.id
+        
+        serializer = PruebaSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def get(self, request, curso_id):
+        curso = self.get_curso(curso_id)
+        pruebas = Prueba.objects.filter(curso=curso)
+        serializer = PruebaSerializer(pruebas, many=True)
+        return Response(serializer.data)
+
+

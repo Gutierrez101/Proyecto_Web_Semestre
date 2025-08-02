@@ -1,17 +1,17 @@
 "use client";
-import Navbar2 from '@/components/layout/NavbarDocente';
-import TallerUpload from '@/components/SubirDocente/ArchivosUpload';
+import { useSearchParams } from 'next/navigation';
+import ArchivosUpload from '@/components/SubirDocente/ArchivosUpload';
 
 export default function TallerPage() {
-  return (
-    <>
-      <Navbar2 />
-        <TallerUpload 
-          nombreCurso="Fundamentos de Programación"
-          numeroTaller="Taller N°1"
-          descripcionTaller="Crear un programa básico que implemente variables, condicionales y bucles. Debe incluir comentarios explicativos y seguir las buenas prácticas de programación."
-          tipo="taller"
+    const searchParams = useSearchParams();
+    const cursoId = searchParams.get('curso');
+    
+    return (
+        <ArchivosUpload 
+            nombreCurso="Taller del Curso"
+            numeroTaller="Taller N°1"
+            descripcionTaller="Sube el archivo PDF o Word con las instrucciones del taller. Los estudiantes podrán descargarlo y trabajar en él."
+            tipo="taller"
         />
-    </>
-  );
+    );
 }

@@ -1,32 +1,24 @@
 'use client';
 
-// Define el componente Card primero
-const Card = ({ children }) => (
-  <div className="bg-white p-4 rounded-lg shadow-md hover:shadow-lg transition-shadow">
+const Card = ({ children, onClick }) => (
+  <div 
+    className="bg-white p-4 rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer"
+    onClick={onClick}
+  >
     {children}
   </div>
 );
 
-export default function ClassGrid({ classes }) {
+export default function ClassGrid({ classes, onItemClick }) {
   return (
-    <div className="grid md:grid-cols-4 gap-4">
-      {classes.map((c, idx) => (
-        <Card key={idx}>
-          <h3 className="font-bold text-lg text-green-700">{c.tema}</h3>
-          <ul className="text-sm text-black">
-            {c.recursos.map((recurso, i) => (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {classes.map((clase, idx) => (
+        <Card key={idx} onClick={() => onItemClick(clase.id)}>
+          <h3 className="font-bold text-lg">{clase.tema}</h3>
+          <ul className="text-sm text-gray-600">
+            {clase.recursos.map((recurso, i) => (
               <li key={i}>{recurso}</li>
             ))}
-            {c.tema === "Notas" && (
-              <li>
-                <a
-                  href="/dashboard/dashboardEstudiante/notasEstudiante"
-                  className="text-blue-600 underline"
-                >
-                  Ver notas
-                </a>
-              </li>
-            )}
           </ul>
         </Card>
       ))}

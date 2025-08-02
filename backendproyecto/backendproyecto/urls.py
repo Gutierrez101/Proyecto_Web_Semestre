@@ -1,3 +1,4 @@
+
 """
 URL configuration for backendproyecto project.
 
@@ -16,12 +17,29 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from users.api_views import RegisterView, CustomLoginView, CursoListView, CursoDetailView
+from django.conf import settings
+from django.conf.urls.static import static
+from users.api_views import (
+    RegisterView, 
+    CustomLoginView, 
+    CursoListView, 
+    CursoDetailView,
+    VideoView, 
+    TallerView, 
+    PruebaView
+)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/register/', RegisterView.as_view(), name='api-register'),
     path('api/login/', CustomLoginView.as_view(), name='login'),
-    path('api/cursos/', CursoListView.as_view(),name='curso-create'),
+    path('api/cursos/', CursoListView.as_view(), name='curso-create'),
     path('api/cursos/<int:pk>/', CursoDetailView.as_view(), name='curso-detail'),
+    path('api/cursos/<int:curso_id>/videos/', VideoView.as_view(), name='video-actividad'),
+    path('api/cursos/<int:curso_id>/talleres/', TallerView.as_view(), name='taller-actividad'),
+    path('api/cursos/<int:curso_id>/pruebas/', PruebaView.as_view(), name='prueba-actividad'),
 ]
+
+# Solo en desarrollo: servir archivos multimedia
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
