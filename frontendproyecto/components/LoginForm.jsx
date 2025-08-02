@@ -33,7 +33,7 @@ export default function LoginForm() {
         
         // Redirigir según el tipo de usuario
         if (data.user_type === 'student') {
-          router.push('/dashboard/dashboardEstudiante');
+          router.push('/dashboard/estudiante');
         } else {
           router.push('/dashboard/docente');
         }
