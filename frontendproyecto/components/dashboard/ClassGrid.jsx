@@ -10,6 +10,12 @@ const Card = ({ children, onClick }) => (
 );
 
 export default function ClassGrid({ classes, onItemClick }) {
+  
+  if (!classes || classes.length === 0) {
+    return <div className="text-center py-8">No tienes cursos asignados</div>;
+  }
+  
+  
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       {classes.map((clase, idx) => (
