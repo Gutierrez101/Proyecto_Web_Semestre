@@ -8,6 +8,7 @@ class User(AbstractUser):
 
 # Primero definimos Curso antes de cualquier modelo que lo use
 class Curso(models.Model):
+    id=models.AutoField(primary_key=True, unique=True)
     nombre = models.CharField(max_length=100)
     descripcion = models.TextField()
     codigo = models.CharField(max_length=20, unique=True)
