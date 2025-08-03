@@ -1,4 +1,5 @@
 from django.db.models import Q
+from django.http import Http404
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.authtoken.views import ObtainAuthToken
@@ -122,17 +123,25 @@ class CursoDetailView(APIView):
 
     def get(self, request, pk):
         try:
-            # Permite acceso a profesores o estudiantes inscritos
-            curso = Curso.objects.get(
+            # Usa filter().first() en lugar de get() para evitar el error
+            curso = Curso.objects.filter(
                 Q(pk=pk) & 
                 (Q(profesor=request.user) | Q(estudiantes=request.user))
-            )
+            ).first()  # <- Cambio clave aquí
+
+            if not curso:
+                return Response(
+                    {'error': 'Curso no encontrado o no tienes acceso'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
             serializer = CursoSerializer(curso)
             return Response(serializer.data)
-        except Curso.DoesNotExist:
+
+        except Exception as e:
             return Response(
-                {'error': 'Curso no encontrado o no tienes acceso'},
-                status=status.HTTP_404_NOT_FOUND
+                {'error': 'Error en el servidor', 'detalle': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
     def put(self, request, pk):
@@ -157,28 +166,56 @@ class ActividadesCursoView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get_curso(self, pk):
-        # Permite acceso a profesores o estudiantes inscritos
-        return get_object_or_404(
-            Curso, 
-            Q(profesor=self.request.user) | Q(estudiantes=self.request.user),
-            pk=pk
-        )
+        try:
+            # Usa filter().first() en lugar de get_object_or_404
+            curso = Curso.objects.filter(
+                Q(profesor=self.request.user) | Q(estudiantes=self.request.user),
+                pk=pk
+            ).first()
+            
+            if not curso:
+                raise Http404("Curso no encontrado o no tienes acceso")
+            return curso
+        except Exception as e:
+            raise Http404(str(e))
     
 class VideoView(ActividadesCursoView):
     def post(self, request, curso_id):
-        curso = self.get_curso(curso_id)
-        data = request.data.copy()
-        data['curso'] = curso.id
-        
-        serializer = VideoSerializer(data=data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            # Cambia get_curso() por este código seguro:
+            curso = Curso.objects.filter(id=curso_id).first()
+            if not curso:
+                return Response(
+                    {'error': 'Curso no encontrado'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
 
-    def get(self, request, curso_id):
+            data = {
+                'titulo': request.data.get('titulo'),
+                'descripcion': request.data.get('descripcion'),
+                'curso': curso.id,
+                'archivo': request.FILES.get('archivo')
+            }
+
+            serializer = VideoSerializer(data=data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    def get(self,request,curso_id):
         curso = self.get_curso(curso_id)
-        videos = Video.objects.filter(curso=curso)
+        videos = Video.objects.filter(curso=curso).order_by('-fecha_creacion')
+        
+        # Agrega esta línea para debug
+        print(f"Videos encontrados: {[v.titulo for v in videos]}")
+        
         serializer = VideoSerializer(videos, many=True)
         return Response(serializer.data)
 
@@ -217,7 +254,6 @@ class PruebaView(ActividadesCursoView):
         pruebas = Prueba.objects.filter(curso=curso)
         serializer = PruebaSerializer(pruebas, many=True)
         return Response(serializer.data)
-
 
 
 

@@ -15,6 +15,7 @@ export default function CursoEstudiante() {
   const [pruebas, setPruebas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selectedVideo, setSelectedVideo] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -30,7 +31,8 @@ export default function CursoEstudiante() {
           'Content-Type': 'application/json'
         };
 
-        // Obtener todos los datos en paralelo
+        console.log(`Fetching data for curso ID: ${id}`);
+
         const [cursoRes, videosRes, talleresRes, pruebasRes] = await Promise.all([
           fetch(`http://localhost:8000/api/cursos/${id}/`, { headers }),
           fetch(`http://localhost:8000/api/cursos/${id}/videos/`, { headers }),
@@ -38,19 +40,30 @@ export default function CursoEstudiante() {
           fetch(`http://localhost:8000/api/cursos/${id}/pruebas/`, { headers })
         ]);
 
-        // Verificar respuestas
+        console.log('API Responses:', {
+          curso: cursoRes,
+          videos: videosRes,
+          talleres: talleresRes,
+          pruebas: pruebasRes
+        });
+
         if (!cursoRes.ok) throw new Error('Error al obtener el curso');
         
         const cursoData = await cursoRes.json();
         setCurso(cursoData);
         
-        if (videosRes.ok) setVideos(await videosRes.json());
+        if (videosRes.ok) {
+          const videosData = await videosRes.json();
+          console.log('Videos data:', videosData);
+          setVideos(videosData);
+        }
+        
         if (talleresRes.ok) setTalleres(await talleresRes.json());
         if (pruebasRes.ok) setPruebas(await pruebasRes.json());
 
       } catch (err) {
+        console.error('Fetch error:', err);
         setError(err.message);
-        console.error('Error:', err);
       } finally {
         setLoading(false);
       }
@@ -59,7 +72,6 @@ export default function CursoEstudiante() {
     fetchData();
   }, [id, router]);
 
-  // Función para obtener el tipo de archivo
   const getFileType = (filename) => {
     if (!filename) return 'Archivo';
     const extension = filename.split('.').pop().toLowerCase();
@@ -75,14 +87,12 @@ export default function CursoEstudiante() {
     return types[extension] || extension.toUpperCase();
   };
 
-  // Función para formatear la fecha
   const formatDate = (dateString) => {
     if (!dateString) return 'Sin fecha';
     const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
     return new Date(dateString).toLocaleDateString('es-ES', options);
   };
 
-  // Componente para mostrar recursos
   const ResourceSection = ({ title, resources, resourceType }) => (
     <div className="bg-white p-4 rounded-lg shadow mb-6">
       <h2 className="text-xl font-semibold mb-4 text-gray-800 border-b pb-2">{title}</h2>
@@ -102,35 +112,43 @@ export default function CursoEstudiante() {
                 </span>
               </div>
 
-              <div className="mt-3 flex flex-wrap gap-2">
-                {resourceType === 'video' && (
-                  <a 
-                    href={`http://localhost:8000${resource.archivo}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+              {resourceType === 'video' && resource.archivo && (
+                <>
+                  <div 
+                    className="relative cursor-pointer mb-3 rounded-lg overflow-hidden"
+                    onClick={() => setSelectedVideo(resource)}
+                  >
+                    <video 
+                      src={`http://localhost:8000${resource.archivo}`}
+                      className="w-full h-48 object-cover"
+                      muted
+                      disablePictureInPicture
+                      controlsList="nodownload"
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
+                      <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                      </svg>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setSelectedVideo(resource)}
                     className="inline-flex items-center bg-blue-500 text-white px-3 py-2 rounded hover:bg-blue-600 transition-colors"
                   >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    Ver Video
-                  </a>
-                )}
-                
-                {(resourceType === 'taller' || resourceType === 'prueba') && (
-                  <a 
-                    href={`http://localhost:8000${resource.archivo || resource.archivo_xml}`}
-                    download
-                    className="inline-flex items-center bg-green-500 text-white px-3 py-2 rounded hover:bg-green-600 transition-colors"
-                  >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-                    </svg>
-                    Descargar
-                  </a>
-                )}
-              </div>
+                    Ver Video Completo
+                  </button>
+                </>
+              )}
+              
+              {(resourceType === 'taller' || resourceType === 'prueba') && (
+                <a 
+                  href={`http://localhost:8000${resource.archivo || resource.archivo_xml}`}
+                  download
+                  className="inline-flex items-center bg-green-500 text-white px-3 py-2 rounded hover:bg-green-600 transition-colors mt-2"
+                >
+                  Descargar
+                </a>
+              )}
 
               <div className="mt-3 text-sm text-gray-500">
                 <p className="flex items-center">
@@ -139,14 +157,6 @@ export default function CursoEstudiante() {
                   </svg>
                   Subido: {formatDate(resource.fecha_creacion)}
                 </p>
-                {resource.fecha_entrega && (
-                  <p className="flex items-center mt-1">
-                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    Entrega: {formatDate(resource.fecha_entrega)}
-                  </p>
-                )}
               </div>
             </div>
           ))}
@@ -207,7 +217,6 @@ export default function CursoEstudiante() {
       
       <main className="flex-grow p-4 md:p-6">
         <div className="max-w-6xl mx-auto">
-          {/* Encabezado del curso */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">{curso.nombre}</h1>
             <p className="text-gray-600 mb-4">{curso.descripcion}</p>
@@ -221,7 +230,6 @@ export default function CursoEstudiante() {
             </div>
           </div>
           
-          {/* Secciones de recursos */}
           <ResourceSection 
             title="Videos Educativos" 
             resources={videos} 
@@ -240,22 +248,42 @@ export default function CursoEstudiante() {
             resourceType="prueba"
           />
           
-          {/* Botón de volver */}
           <div className="mt-6">
             <button 
               onClick={() => router.push('/dashboard/estudiante')}
               className="flex items-center bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 transition-colors"
             >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
-              </svg>
               Volver a mis cursos
             </button>
           </div>
         </div>
       </main>
-      
 
+      {selectedVideo && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg overflow-hidden w-full max-w-4xl">
+            <div className="flex justify-between items-center bg-gray-800 p-3">
+              <h3 className="text-white font-medium">{selectedVideo.titulo}</h3>
+              <button 
+                onClick={() => setSelectedVideo(null)}
+                className="text-white hover:text-gray-300"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+            <video 
+              src={`http://localhost:8000${selectedVideo.archivo}`}
+              className="w-full"
+              controls
+              autoPlay
+            />
+          </div>
+        </div>
+      )}
+
+      <Footer />
     </div>
   );
 }

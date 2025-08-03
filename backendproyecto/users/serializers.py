@@ -33,6 +33,7 @@ class CursoSerializer(serializers.ModelSerializer):
         model = Curso
         fields = '__all__'
         extra_kwargs = {
+            'id':{'read_only':True},
             'codigo': {
                 'validators': [
                     validators.UniqueValidator(queryset=Curso.objects.all())
@@ -45,13 +46,10 @@ class CursoSerializer(serializers.ModelSerializer):
 class VideoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Video
-        fields = '__all__'
-        read_only_fields = ('fecha_creacion', 'curso')
+        fields = ['id', 'titulo', 'descripcion', 'archivo', 'curso', 'fecha_creacion']
         extra_kwargs = {
-            'archivo': {
-                'required': True,
-                'allow_null': False
-            }
+            'archivo': {'required': True},
+            'titulo': {'required': True},
         }
 
     def validate_archivo(self, value):
