@@ -1,4 +1,4 @@
-
+from django.db.models import Q
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.authtoken.views import ObtainAuthToken
@@ -121,11 +121,22 @@ class CursoDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
-        curso = get_object_or_404(Curso, pk=pk, profesor=request.user)
-        serializer = CursoSerializer(curso)
-        return Response(serializer.data)
+        try:
+            # Permite acceso a profesores o estudiantes inscritos
+            curso = Curso.objects.get(
+                Q(pk=pk) & 
+                (Q(profesor=request.user) | Q(estudiantes=request.user))
+            )
+            serializer = CursoSerializer(curso)
+            return Response(serializer.data)
+        except Curso.DoesNotExist:
+            return Response(
+                {'error': 'Curso no encontrado o no tienes acceso'},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
     def put(self, request, pk):
+        # Solo el profesor puede modificar
         curso = get_object_or_404(Curso, pk=pk, profesor=request.user)
         serializer = CursoSerializer(curso, data=request.data, partial=True)
         if serializer.is_valid():
@@ -134,10 +145,10 @@ class CursoDetailView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, pk):
+        # Solo el profesor puede eliminar
         curso = get_object_or_404(Curso, pk=pk, profesor=request.user)
         curso.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-
 
 
 
@@ -146,8 +157,13 @@ class ActividadesCursoView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get_curso(self, pk):
-        return get_object_or_404(Curso, pk=pk, profesor=self.request.user)
-
+        # Permite acceso a profesores o estudiantes inscritos
+        return get_object_or_404(
+            Curso, 
+            Q(profesor=self.request.user) | Q(estudiantes=self.request.user),
+            pk=pk
+        )
+    
 class VideoView(ActividadesCursoView):
     def post(self, request, curso_id):
         curso = self.get_curso(curso_id)
@@ -211,8 +227,20 @@ class UnirseCursoView(APIView):
 
     def post(self, request):
         codigo = request.data.get('codigo')
+        if not codigo:
+            return Response(
+                {'error': 'Se requiere el código del curso'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         try:
             curso = Curso.objects.get(codigo=codigo)
+            if request.user in curso.estudiantes.all():
+                return Response(
+                    {'error': 'Ya estás inscrito en este curso'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
             curso.estudiantes.add(request.user)
             return Response(
                 {'mensaje': 'Te has unido al curso exitosamente'},
@@ -223,3 +251,17 @@ class UnirseCursoView(APIView):
                 {'error': 'Código de curso inválido'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        except Exception as e:
+            print(f"Error al unirse al curso: {str(e)}")  # Log para depuración
+            return Response(
+                {'error': 'Error interno del servidor'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+class CursosInscritosView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        cursos = request.user.cursos_inscritos.all()
+        serializer = CursoSerializer(cursos, many=True)
+        return Response(serializer.data)

@@ -31,7 +31,7 @@ from users.api_views import (
 
 
 # Modulo para inscripcion de cursos
-from users.api_views import UnirseCursoView
+from users.api_views import UnirseCursoView,CursosInscritosView
 
 
 urlpatterns = [
@@ -46,11 +46,12 @@ urlpatterns = [
 
 
     #inscripcion de cursos
-        path('api/cursos/unirse/', UnirseCursoView.as_view(), name='unirse-curso'),
+    path('api/cursos/unirse/', UnirseCursoView.as_view(), name='unirse-curso'),
+    path('api/mis-cursos/', CursosInscritosView.as_view(), name='mis-cursos'),
 
 ]
 
-# Solo en desarrollo: servir archivos multimedia
+# para los archivos multimedia
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

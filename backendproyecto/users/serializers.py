@@ -77,12 +77,15 @@ class TallerSerializer(serializers.ModelSerializer):
         return data
 
     def validate_archivo(self, value):
-        valid_extensions = ['.pdf', '.doc', '.docx']
+        valid_extensions = ['.pdf', '.doc', '.docx', '.xls', '.xlsx']  # Añadi el formato  Excel
         if not any(value.name.lower().endswith(ext) for ext in valid_extensions):
             raise serializers.ValidationError(
-                "Solo se permiten archivos PDF o Word"
+                "Solo se permiten archivos PDF, Excel o Word"
             )
         return value
+    
+
+    
 
 class PruebaSerializer(serializers.ModelSerializer):
     class Meta:
