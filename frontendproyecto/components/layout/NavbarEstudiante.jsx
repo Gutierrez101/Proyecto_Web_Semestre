@@ -1,10 +1,19 @@
+'use client';
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from 'react';
 
-export default function NavbarEstudiante({ nombreEstudiante = "Nombre Estudiante" }) {
-  
-  const router=useRouter();
+export default function NavbarEstudiante() {
+  const router = useRouter();
+  const [nombre, setNombre] = useState('Estudiante');
+
+  useEffect(() => {
+    const username = localStorage.getItem('username');
+    if (username) {
+      setNombre(username);
+    }
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -13,26 +22,28 @@ export default function NavbarEstudiante({ nombreEstudiante = "Nombre Estudiante
   }
   
   return (
-        <header className="bg-[#012E4A] shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
-            {/* Logo a la izquierda */}
-            <div className="flex-shrink-0 flex items-center">
-                <Image
-                src="/logo.png" // Asegúrate de que la ruta sea correcta
-                alt="Mindflow Logo"
-                width={50}
-                height={50}
-                className="h-14 w-auto" // Ajusta según necesites
-                />
+    <header className="bg-[#012E4A] shadow-sm">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16">
+          {/* Logo a la izquierda */}
+          <div className="flex-shrink-0 flex items-center">
+            <Image
+              src="/logo.png"
+              alt="Mindflow Logo"
+              width={50}
+              height={50}
+              className="h-14 w-auto"
+            />
+          </div>
 
-            </div>
-
-            {/* Botones a la derecha */}
-            <div className="flex items-center gap-6">
-            <span className="font-semibold">{nombreEstudiante}</span>
-            <Link href="/dashboard/estudiante/unirseClaseEstudiante" className="px-4 py-2 rounded bg-[#81BECE] hover:bg-[#577f92] transition-colors text-sm font-medium">
-              Unirse a Curso
+          {/* Botones a la derecha */}
+          <div className="flex items-center gap-6">
+            <span className="font-semibold text-white">{nombre}</span>
+            <Link 
+              href="/dashboard/estudiante" 
+              className="text-white hover:underline"
+            >
+              Mis Cursos
             </Link>
             <button
               className="px-4 py-2 rounded border border-[#81BECE] text-[#81BECE] hover:bg-[#012E4A] hover:text-white transition-colors text-sm font-medium"
@@ -40,9 +51,9 @@ export default function NavbarEstudiante({ nombreEstudiante = "Nombre Estudiante
             >
               Cerrar Sesión
             </button>
-                      </div>
-            </div>
           </div>
-        </header>
-    );
+        </div>
+      </div>
+    </header>
+  );
 }
