@@ -1,7 +1,5 @@
-// esta pestaña es para el curso del estudiante
-//donde se verán los detalles del curso, videos, talleres y pruebas
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import NavbarEstudiante from '@/components/layout/NavbarEstudiante';
 import Footer from '@/components/layout/Footer';
@@ -16,6 +14,11 @@ export default function CursoEstudiante() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedVideo, setSelectedVideo] = useState(null);
+  const [cameraActive, setCameraActive] = useState(false);
+  const [attentionVerified, setAttentionVerified] = useState(false);
+  const [verificationError, setVerificationError] = useState(null);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -31,8 +34,6 @@ export default function CursoEstudiante() {
           'Content-Type': 'application/json'
         };
 
-        console.log(`Fetching data for curso ID: ${id}`);
-
         const [cursoRes, videosRes, talleresRes, pruebasRes] = await Promise.all([
           fetch(`http://localhost:8000/api/cursos/${id}/`, { headers }),
           fetch(`http://localhost:8000/api/cursos/${id}/videos/`, { headers }),
@@ -40,24 +41,12 @@ export default function CursoEstudiante() {
           fetch(`http://localhost:8000/api/cursos/${id}/pruebas/`, { headers })
         ]);
 
-        console.log('API Responses:', {
-          curso: cursoRes,
-          videos: videosRes,
-          talleres: talleresRes,
-          pruebas: pruebasRes
-        });
-
         if (!cursoRes.ok) throw new Error('Error al obtener el curso');
         
         const cursoData = await cursoRes.json();
         setCurso(cursoData);
         
-        if (videosRes.ok) {
-          const videosData = await videosRes.json();
-          console.log('Videos data:', videosData);
-          setVideos(videosData);
-        }
-        
+        if (videosRes.ok) setVideos(await videosRes.json());
         if (talleresRes.ok) setTalleres(await talleresRes.json());
         if (pruebasRes.ok) setPruebas(await pruebasRes.json());
 
@@ -70,6 +59,12 @@ export default function CursoEstudiante() {
     };
 
     fetchData();
+
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
   }, [id, router]);
 
   const getFileType = (filename) => {
@@ -91,6 +86,114 @@ export default function CursoEstudiante() {
     if (!dateString) return 'Sin fecha';
     const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
     return new Date(dateString).toLocaleDateString('es-ES', options);
+  };
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'user' }, 
+        audio: false 
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        streamRef.current = stream;
+      }
+      setCameraActive(true);
+      setVerificationError(null);
+    } catch (err) {
+      console.error('Error al acceder a la cámara:', err);
+      setVerificationError('Debes permitir el acceso a la cámara para ver este video');
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setCameraActive(false);
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  };
+
+  const verifyAttention = async (videoResource) => {
+    try {
+      if (!streamRef.current) {
+        throw new Error('La cámara no está activa');
+      }
+
+      // Capturar frame del video
+      const videoTrack = streamRef.current.getVideoTracks()[0];
+      const imageCapture = new ImageCapture(videoTrack);
+      const frame = await imageCapture.grabFrame();
+      
+      // Convertir a Blob
+      const canvas = document.createElement('canvas');
+      canvas.width = frame.width;
+      canvas.height = frame.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(frame, 0, 0);
+      
+      const blob = await new Promise((resolve) => {
+        canvas.toBlob(resolve, 'image/jpeg', 0.8);
+      });
+
+      // Enviar al backend para verificación
+      const formData = new FormData();
+      formData.append('frame', blob, 'attention_check.jpg');
+
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `http://localhost:8000/api/videos/${videoResource.id}/verify/`, 
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Token ${token}`
+          },
+          body: formData
+        }
+      );
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'No se pudo verificar tu atención');
+      }
+
+      // Si la verificación es exitosa
+      setAttentionVerified(true);
+      setSelectedVideo({
+        ...videoResource,
+        token: data.token
+      });
+      stopCamera();
+
+    } catch (err) {
+      console.error('Error en verificación:', err);
+      setVerificationError(err.message);
+    }
+  };
+
+  const handleVideoClick = async (videoResource) => {
+    if (attentionVerified && selectedVideo?.id === videoResource.id) {
+      // Si ya está verificado, simplemente mostrar el video
+      setSelectedVideo({
+        ...videoResource,
+        token: selectedVideo.token
+      });
+      return;
+    }
+
+    // Resetear estados
+    setAttentionVerified(false);
+    setSelectedVideo(null);
+    setVerificationError(null);
+
+    // Iniciar proceso de verificación
+    if (!cameraActive) {
+      await startCamera();
+    }
   };
 
   const ResourceSection = ({ title, resources, resourceType }) => (
@@ -116,7 +219,7 @@ export default function CursoEstudiante() {
                 <>
                   <div 
                     className="relative cursor-pointer mb-3 rounded-lg overflow-hidden"
-                    onClick={() => setSelectedVideo(resource)}
+                    onClick={() => handleVideoClick(resource)}
                   >
                     <video 
                       src={`http://localhost:8000${resource.archivo}`}
@@ -132,7 +235,7 @@ export default function CursoEstudiante() {
                     </div>
                   </div>
                   <button
-                    onClick={() => setSelectedVideo(resource)}
+                    onClick={() => handleVideoClick(resource)}
                     className="inline-flex items-center bg-blue-500 text-white px-3 py-2 rounded hover:bg-blue-600 transition-colors"
                   >
                     Ver Video Completo
@@ -259,6 +362,60 @@ export default function CursoEstudiante() {
         </div>
       </main>
 
+      {/* Modal de verificación de atención */}
+      {cameraActive && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg overflow-hidden w-full max-w-2xl">
+            <div className="flex justify-between items-center bg-gray-800 p-4">
+              <h3 className="text-white font-medium">Verificación de atención</h3>
+              <button 
+                onClick={stopCamera}
+                className="text-white hover:text-gray-300"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+            
+            <div className="p-4">
+              <p className="mb-4">Por favor, mira directamente a la cámara para verificar tu atención:</p>
+              
+              <div className="relative bg-black rounded-lg overflow-hidden mb-4">
+                <video 
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  className="w-full h-auto max-h-[60vh]"
+                />
+              </div>
+              
+              {verificationError && (
+                <div className="bg-red-100 text-red-700 p-3 rounded mb-4">
+                  {verificationError}
+                </div>
+              )}
+              
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={stopCamera}
+                  className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => verifyAttention(selectedVideo)}
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
+                >
+                  Verificar Atención
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de reproductor de video */}
       {selectedVideo && (
         <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg overflow-hidden w-full max-w-4xl">

@@ -1,27 +1,207 @@
 from django.db.models import Q
 from django.http import Http404
+from rest_framework.decorators import api_view
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.permissions import AllowAny
 from rest_framework import status
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError, PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authtoken.models import Token
-#from django.contrib.auth.models import User
-#from django.db import IntegrityError
+from datetime import timedelta
+from rest_framework.response import Response
+from django.http import StreamingHttpResponse
+from rest_framework.authentication import TokenAuthentication
 from .serializers import RegisterSerializer, CursoSerializer
-from .models import Curso
+from .models import Curso, VideoAccessToken
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
+import cv2
+import numpy as np
+import mediapipe as mp
+import os
 import random
-
 
 
 #importaciones para talleres, videos y pruebas
 from .models import Curso, Video, Taller, Prueba
 from .serializers import VideoSerializer, TallerSerializer, PruebaSerializer
 
+@api_view(['POST'])
+def verify_attention(request, video_id):
+    try:
+        video=Video.object.filter(id=video_id).first()
+        if not video:
+            return Response({'error':'Video no encontrado'}, status=404)
+        
+        frame_data=request.data.get('frame')
+        if not frame_data:
+            return Response({'error':'No se recibio imagen de la camara'},status=400)
+        # Convertir a imagen OpenCV
+        nparr = np.frombuffer(frame_data.read(), np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        
+        # 3. Análisis de atención con MediaPipe
+        attention_result = analyze_attention_with_mediapipe(frame)
+        
+        if not attention_result['is_paying_attention']:
+            return Response({
+                'error': 'No se detectó atención adecuada',
+                'details': attention_result
+            }, status=403)
+        
+        # 4. Generar token de acceso temporal
+        token = generate_video_token(request.user, video)
+        
+        return Response({
+            'token': token,
+            'video_url': f'/api/videos/{video_id}/stream/',
+            'valid_for': 300  # 5 minutos
+        })
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
 
+def analyze_attention_with_mediapipe(frame):
+    # Inicializar modelos de MediaPipe
+    mp_face_mesh = mp.solutions.face_mesh
+    mp_face_detection = mp.solutions.face_detection
+    
+    with mp_face_mesh.FaceMesh(
+        static_image_mode=False,
+        max_num_faces=1,
+        refine_landmarks=True,
+        min_detection_confidence=0.5) as face_mesh:
+        
+        # Convertir a RGB
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        results = face_mesh.process(rgb_frame)
+        
+        if not results.multi_face_landmarks:
+            return {
+                'is_paying_attention': False,
+                'reason': 'No se detectó rostro'
+            }
+        
+        # Obtener landmarks faciales
+        landmarks = results.multi_face_landmarks[0].landmark
+        
+        # Calcular métricas de atención
+        eye_ratio = calculate_eye_aspect_ratio_mediapipe(landmarks)
+        head_pose = estimate_head_pose_mediapipe(landmarks, frame.shape)
+        
+        # Umbrales para determinar atención (ajustar según necesidad)
+        is_paying_attention = (
+            eye_ratio > 0.25 and  # Ojos abiertos
+            abs(head_pose['pitch']) < 25 and  # Inclinación cabeza
+            abs(head_pose['yaw']) < 30 and    # Rotación cabeza
+            abs(head_pose['roll']) < 20       # Inclinación lateral
+        )
+        
+        return {
+            'is_paying_attention': is_paying_attention,
+            'eye_aspect_ratio': eye_ratio,
+            'head_pose': head_pose,
+            'face_detected': True
+        }
+
+def calculate_eye_aspect_ratio_mediapipe(landmarks):
+    # Índices de puntos para ojos según MediaPipe Face Mesh
+    left_eye_indices = [33, 160, 158, 133, 153, 144]
+    right_eye_indices = [362, 385, 387, 263, 373, 380]
+    
+    # Calcular EAR para ambos ojos
+    left_ear = get_ear_mediapipe([landmarks[i] for i in left_eye_indices])
+    right_ear = get_ear_mediapipe([landmarks[i] for i in right_eye_indices])
+    
+    return (left_ear + right_ear) / 2
+
+def get_ear_mediapipe(eye_points):
+    # Calcular distancias para EAR (Eye Aspect Ratio)
+    # Usando las coordenadas normalizadas de MediaPipe
+    A = distance_3d(eye_points[1], eye_points[5])
+    B = distance_3d(eye_points[2], eye_points[4])
+    C = distance_3d(eye_points[0], eye_points[3])
+    return (A + B) / (2.0 * C)
+
+def distance_3d(point1, point2):
+    # Calcular distancia euclidiana entre puntos 3D
+    return ((point1.x - point2.x)**2 + 
+            (point1.y - point2.y)**2 + 
+            (point1.z - point2.z)**2)**0.5
+
+def estimate_head_pose_mediapipe(landmarks, frame_shape):
+    # Puntos clave para estimar pose
+    image_points = np.array([
+        [landmarks[1].x * frame_shape[1], landmarks[1].y * frame_shape[0]],  # Nariz
+        [landmarks[152].x * frame_shape[1], landmarks[152].y * frame_shape[0]], # Mentón
+        [landmarks[33].x * frame_shape[1], landmarks[33].y * frame_shape[0]],  # Ojo izquierdo
+        [landmarks[263].x * frame_shape[1], landmarks[263].y * frame_shape[0]], # Ojo derecho
+        [landmarks[61].x * frame_shape[1], landmarks[61].y * frame_shape[0]],  # Boca izquierda
+        [landmarks[291].x * frame_shape[1], landmarks[291].y * frame_shape[0]]  # Boca derecha
+    ], dtype=np.float64)
+    
+    # Modelo 3D de referencia
+    model_points = np.array([
+        (0.0, 0.0, 0.0),             # Nariz
+        (0.0, -330.0, -65.0),        # Mentón
+        (-225.0, 170.0, -135.0),     # Ojo izquierdo
+        (225.0, 170.0, -135.0),      # Ojo derecho
+        (-150.0, -150.0, -125.0),    # Boca izquierda
+        (150.0, -150.0, -125.0)      # Boca derecha
+    ])
+    
+    # Parámetros de la cámara (aproximados)
+    focal_length = frame_shape[1]
+    center = (frame_shape[1]/2, frame_shape[0]/2)
+    camera_matrix = np.array(
+        [[focal_length, 0, center[0]],
+         [0, focal_length, center[1]],
+         [0, 0, 1]], dtype=np.float64)
+    
+    dist_coeffs = np.zeros((4,1))  # Sin distorsión
+    
+    # Calcular pose
+    success, rotation_vec, translation_vec = cv2.solvePnP(
+        model_points, image_points, camera_matrix, dist_coeffs)
+    
+    if not success:
+        return {'pitch': 0, 'yaw': 0, 'roll': 0}
+    
+    # Convertir a ángulos de Euler
+    rmat, _ = cv2.Rodrigues(rotation_vec)
+    angles, _, _, _, _, _ = cv2.RQDecomp3x3(rmat)
+    
+    return {
+        'pitch': angles[0],  # Inclinación (arriba/abajo)
+        'yaw': angles[1],    # Rotación (izquierda/derecha)
+        'roll': angles[2]    # Inclinación lateral
+    }
+
+def generate_video_token(user, video):
+    """
+    Genera un token temporal usando rest_framework.authtoken
+    """
+    # Eliminar tokens antiguos del mismo tipo
+    Token.objects.filter(
+        user=user,
+        key__startswith=f'VIDEO_{video.id}_'
+    ).delete()
+    
+    # Crear nuevo token con prefijo especial
+    token_key = f'VIDEO_{video.id}_{timezone.now().timestamp()}'
+    token = Token.objects.create(
+        user=user,
+        key=token_key[:40]  # La clave tiene max 40 caracteres
+    )
+    
+    # Opcional: Puedes añadir metadata adicional en otro modelo
+    VideoAccessToken.objects.create(
+        token=token,
+        video=video,
+        expires_at=timezone.now() + timedelta(minutes=5))
+    
+    return token.key
 
 
 class CustomLoginView(ObtainAuthToken):
@@ -255,6 +435,52 @@ class PruebaView(ActividadesCursoView):
         serializer = PruebaSerializer(pruebas, many=True)
         return Response(serializer.data)
 
+class VideoStreamView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, video_id):
+        try:
+            # Verificar que el token es válido para este video
+            token_key = request.auth.key
+            if not token_key.startswith(f'VIDEO_{video_id}_'):
+                raise PermissionDenied('Token no válido para este video')
+            
+            # Verificar expiración (si usas el modelo opcional)
+            video_token = VideoAccessToken.objects.get(token__key=token_key)
+            if video_token.expires_at < timezone.now():
+                raise PermissionDenied('Token expirado')
+            
+            if video_token.is_used:
+                raise PermissionDenied('Token ya utilizado')
+            
+            # Marcar como usado (opcional)
+            video_token.is_used = True
+            video_token.save()
+            
+            # Continuar con la lógica de streaming...
+            video = Video.objects.get(id=video_id)
+            file_path = video.archivo.path
+            
+            def file_iterator(file_path, chunk_size=8192):
+                with open(file_path, 'rb') as f:
+                    while True:
+                        chunk = f.read(chunk_size)
+                        if not chunk:
+                            break
+                        yield chunk
+            
+            response = StreamingHttpResponse(
+                file_iterator(file_path),
+                content_type='video/mp4'
+            )
+            response['Content-Disposition'] = f'inline; filename="{os.path.basename(file_path)}"'
+            return response
+            
+        except VideoAccessToken.DoesNotExist:
+            raise PermissionDenied('Token de video no válido')
+        except Video.DoesNotExist:
+            return Response({'error': 'Video no encontrado'}, status=404)
 
 
 # Modulo para inscripciones a cursos
