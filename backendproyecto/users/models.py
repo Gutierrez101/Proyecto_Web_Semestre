@@ -1,6 +1,8 @@
 from django.conf import settings
 from django.db import models
+from rest_framework.views import APIView
 from django.contrib.auth.models import AbstractUser
+
 
 class User(AbstractUser):
     # Campos adicionales si los necesitas
@@ -53,3 +55,18 @@ class Taller(ActividadBase):
 class Prueba(ActividadBase):
     archivo_xml = models.FileField(upload_to='pruebas/')
     plantilla_calificacion = models.TextField(help_text="Instrucciones para la calificación automática")
+
+class VideoAccessToken(models.Model):
+    token = models.OneToOneField(
+        'authtoken.Token',
+        on_delete=models.CASCADE,
+        related_name='video_access'
+    )
+    video = models.ForeignKey(
+        'Curso',
+        on_delete=models.CASCADE
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    is_used = models.BooleanField(default=False)
+
