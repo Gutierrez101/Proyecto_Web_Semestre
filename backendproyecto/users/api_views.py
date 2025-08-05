@@ -1,5 +1,5 @@
 from django.db.models import Q
-from django.http import Http404
+from django.http import Http404, FileResponse, HttpResponse
 from rest_framework.decorators import api_view
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -21,8 +21,12 @@ import cv2
 import numpy as np
 import mediapipe as mp
 import os
+import re
+import logging
 import random
 
+
+logger=logging.getLogger(__name__)
 
 #importaciones para talleres, videos y pruebas
 from .models import Curso, Video, Taller, Prueba
@@ -31,34 +35,41 @@ from .serializers import VideoSerializer, TallerSerializer, PruebaSerializer
 @api_view(['POST'])
 def verify_attention(request, video_id):
     try:
-        video=Video.object.filter(id=video_id).first()
-        if not video:
-            return Response({'error':'Video no encontrado'}, status=404)
+        if not request.user.is_authenticated:
+            return Response({'error':'No autenticado'}, status=401)
+
+        video = Video.objects.get(id=video_id)
         
-        frame_data=request.data.get('frame')
-        if not frame_data:
-            return Response({'error':'No se recibio imagen de la camara'},status=400)
-        # Convertir a imagen OpenCV
-        nparr = np.frombuffer(frame_data.read(), np.uint8)
+        # Verificar que el frame venga en memoria, no como archivo
+        if 'frame' not in request.data:
+            return Response({'error': 'Se requiere un frame de la cámara'}, status=400)
+        
+        # Obtener los bytes de la imagen directamente
+        frame_file = request.FILES['frame']
+        nparr = np.frombuffer(frame_file.read(), np.uint8)
         frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         
-        # 3. Análisis de atención con MediaPipe
+        if frame is None:
+            return Response({'error':'No se puede decodificar la imagen'}, status=400)
+
+        # Procesamiento en memoria (sin guardar)
         attention_result = analyze_attention_with_mediapipe(frame)
         
         if not attention_result['is_paying_attention']:
             return Response({
-                'error': 'No se detectó atención adecuada',
+                'error': 'Atención insuficiente',
                 'details': attention_result
             }, status=403)
-        
-        # 4. Generar token de acceso temporal
+            
         token = generate_video_token(request.user, video)
-        
         return Response({
             'token': token,
-            'video_url': f'/api/videos/{video_id}/stream/',
-            'valid_for': 300  # 5 minutos
+            'video_url': f'/api/cursos/videos/{video_id}/stream/'
         })
+    
+    except Video.DoesNotExist:
+        return Response({'error':'Video no encontrado'},status=404)
+
     except Exception as e:
         return Response({'error': str(e)}, status=500)
 
@@ -441,47 +452,49 @@ class VideoStreamView(APIView):
 
     def get(self, request, video_id):
         try:
-            # Verificar que el token es válido para este video
-            token_key = request.auth.key
-            if not token_key.startswith(f'VIDEO_{video_id}_'):
-                raise PermissionDenied('Token no válido para este video')
+            # Verificar token de acceso
+            token = request.auth
+            if not token or not token.key.startswith(f'VIDEO_{video_id}_'):
+                return Response({'error': 'Token inválido o expirado'}, status=status.HTTP_403_FORBIDDEN)
             
-            # Verificar expiración (si usas el modelo opcional)
-            video_token = VideoAccessToken.objects.get(token__key=token_key)
-            if video_token.expires_at < timezone.now():
-                raise PermissionDenied('Token expirado')
-            
-            if video_token.is_used:
-                raise PermissionDenied('Token ya utilizado')
-            
-            # Marcar como usado (opcional)
-            video_token.is_used = True
-            video_token.save()
-            
-            # Continuar con la lógica de streaming...
             video = Video.objects.get(id=video_id)
+            
+            # Implementación mejorada para streaming
             file_path = video.archivo.path
+            file_size = os.path.getsize(file_path)
             
-            def file_iterator(file_path, chunk_size=8192):
+            # Manejo de rangos para streaming (para permitir pausar/reanudar)
+            range_header = request.META.get('HTTP_RANGE', '').strip()
+            range_match = re.match(r'bytes=(\d+)-(\d+)?', range_header)
+            
+            if range_match:
+                start = int(range_match.group(1))
+                end = int(range_match.group(2)) if range_match.group(2) else file_size - 1
+                length = end - start + 1
+                
                 with open(file_path, 'rb') as f:
-                    while True:
-                        chunk = f.read(chunk_size)
-                        if not chunk:
-                            break
-                        yield chunk
+                    f.seek(start)
+                    data = f.read(length)
+                
+                response = Response(data, status=status.HTTP_206_PARTIAL_CONTENT)
+                response['Content-Range'] = f'bytes {start}-{end}/{file_size}'
+                response['Content-Length'] = length
+            else:
+                response = FileResponse(open(file_path, 'rb'), content_type='video/mp4')
             
-            response = StreamingHttpResponse(
-                file_iterator(file_path),
-                content_type='video/mp4'
-            )
+            response['Accept-Ranges'] = 'bytes'
             response['Content-Disposition'] = f'inline; filename="{os.path.basename(file_path)}"'
+            response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response['Pragma'] = 'no-cache'
+            response['Expires'] = '0'
+            
             return response
             
-        except VideoAccessToken.DoesNotExist:
-            raise PermissionDenied('Token de video no válido')
         except Video.DoesNotExist:
-            return Response({'error': 'Video no encontrado'}, status=404)
-
+            return Response({'error': 'Video no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f"Error en VideoStreamView: {str(e)}")
+            return Response({'error': 'Error interno'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # Modulo para inscripciones a cursos
 class UnirseCursoView(APIView):

@@ -55,6 +55,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'users.middleware.HandleBrokenPipeMiddleware',  
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True
@@ -80,7 +81,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'backendproyecto.wsgi.application'
-
 
 #Para el limite de videos pesados
 DATA_UPLOAD_MAX_MEMORY_SIZE=1024*1024*200

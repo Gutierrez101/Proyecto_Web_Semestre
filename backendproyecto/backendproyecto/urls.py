@@ -50,8 +50,8 @@ urlpatterns = [
     #inscripcion de cursos
     path('api/cursos/unirse/', UnirseCursoView.as_view(), name='unirse-curso'),
     path('api/mis-cursos/', CursosInscritosView.as_view(), name='mis-cursos'),
-    path('api/videos/<int:video_id>/verify/', verify_attention, name='verify_attention'),
-    path('api/videos/<int:video_id>/stream/', VideoStreamView.as_view(), name='video_stream'),
+    path('api/cursos/videos/<int:video_id>/verify/', verify_attention, name='verify_attention'),
+    path('api/cursos/videos/<int:video_id>/stream/', VideoStreamView.as_view(), name='video_stream'),
 ]
 
 # para los archivos multimedia
