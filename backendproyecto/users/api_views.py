@@ -33,6 +33,8 @@ from .models import Curso, Video, Taller, Prueba
 from .serializers import VideoSerializer, TallerSerializer, PruebaSerializer
 
 @api_view(['POST'])
+# api_views.py - Actualización en verify_attention
+@api_view(['POST'])
 def verify_attention(request, video_id):
     try:
         if not request.user.is_authenticated:
@@ -40,19 +42,22 @@ def verify_attention(request, video_id):
 
         video = Video.objects.get(id=video_id)
         
-        # Verificar que el frame venga en memoria, no como archivo
-        if 'frame' not in request.data:
+        # Verificar que el frame venga en la solicitud
+        if 'frame' not in request.FILES:
             return Response({'error': 'Se requiere un frame de la cámara'}, status=400)
         
-        # Obtener los bytes de la imagen directamente
+        # Obtener los bytes de la imagen
         frame_file = request.FILES['frame']
-        nparr = np.frombuffer(frame_file.read(), np.uint8)
+        
+        # Leer la imagen directamente sin guardarla
+        frame_data = frame_file.read()
+        nparr = np.frombuffer(frame_data, np.uint8)
         frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         
         if frame is None:
             return Response({'error':'No se puede decodificar la imagen'}, status=400)
 
-        # Procesamiento en memoria (sin guardar)
+        # Procesamiento en memoria
         attention_result = analyze_attention_with_mediapipe(frame)
         
         if not attention_result['is_paying_attention']:
@@ -69,8 +74,8 @@ def verify_attention(request, video_id):
     
     except Video.DoesNotExist:
         return Response({'error':'Video no encontrado'},status=404)
-
     except Exception as e:
+        logger.error(f"Error en verify_attention: {str(e)}")
         return Response({'error': str(e)}, status=500)
 
 def analyze_attention_with_mediapipe(frame):
@@ -190,9 +195,7 @@ def estimate_head_pose_mediapipe(landmarks, frame_shape):
     }
 
 def generate_video_token(user, video):
-    """
-    Genera un token temporal usando rest_framework.authtoken
-    """
+    """Genera un token temporal para acceso al video"""
     # Eliminar tokens antiguos del mismo tipo
     Token.objects.filter(
         user=user,
@@ -206,11 +209,12 @@ def generate_video_token(user, video):
         key=token_key[:40]  # La clave tiene max 40 caracteres
     )
     
-    # Opcional: Puedes añadir metadata adicional en otro modelo
+    # Crear registro de acceso
     VideoAccessToken.objects.create(
         token=token,
         video=video,
-        expires_at=timezone.now() + timedelta(minutes=5))
+        expires_at=timezone.now() + timedelta(minutes=30)  # Aumentado a 30 minutos
+    )
     
     return token.key
 

@@ -56,6 +56,7 @@ class Prueba(ActividadBase):
     archivo_xml = models.FileField(upload_to='pruebas/')
     plantilla_calificacion = models.TextField(help_text="Instrucciones para la calificación automática")
 
+
 class VideoAccessToken(models.Model):
     token = models.OneToOneField(
         'authtoken.Token',
@@ -63,10 +64,16 @@ class VideoAccessToken(models.Model):
         related_name='video_access'
     )
     video = models.ForeignKey(
-        'Curso',
+        Video,  # Cambiado de 'Curso' a 'Video' para que sea más específico
         on_delete=models.CASCADE
     )
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
     is_used = models.BooleanField(default=False)
 
+    class Meta:
+        verbose_name = 'Token de acceso a video'
+        verbose_name_plural = 'Tokens de acceso a videos'
+
+    def __str__(self):
+        return f"Token para {self.video.titulo} (Expira: {self.expires_at})"
