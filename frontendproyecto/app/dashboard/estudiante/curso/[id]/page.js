@@ -23,8 +23,27 @@ export default function CursoEstudiante() {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
 
+  // Verificar permisos de cámara al cargar el componente
   useEffect(() => {
-    const abortController=new AbortController();
+    const checkCameraPermissions = async () => {
+      try {
+        if (navigator.permissions) {
+          const permissionStatus = await navigator.permissions.query({ name: 'camera' });
+          console.log('Estado inicial de permisos de cámara:', permissionStatus.state);
+          permissionStatus.onchange = () => {
+            console.log('Estado de permiso de cámara cambiado:', permissionStatus.state);
+          };
+        }
+      } catch (err) {
+        console.warn('API de Permissions no soportada:', err);
+      }
+    };
+
+    checkCameraPermissions();
+  }, []);
+
+  useEffect(() => {
+    const abortController = new AbortController();
 
     const fetchData = async () => {
       try {
@@ -40,10 +59,22 @@ export default function CursoEstudiante() {
         };
 
         const [cursoRes, videosRes, talleresRes, pruebasRes] = await Promise.all([
-          fetch(`http://localhost:8000/api/cursos/${id}/`, { headers }),
-          fetch(`http://localhost:8000/api/cursos/${id}/videos/`, { headers }),
-          fetch(`http://localhost:8000/api/cursos/${id}/talleres/`, { headers }),
-          fetch(`http://localhost:8000/api/cursos/${id}/pruebas/`, { headers })
+          fetch(`http://localhost:8000/api/cursos/${id}/`, { 
+            headers,
+            signal: abortController.signal 
+          }),
+          fetch(`http://localhost:8000/api/cursos/${id}/videos/`, { 
+            headers,
+            signal: abortController.signal 
+          }),
+          fetch(`http://localhost:8000/api/cursos/${id}/talleres/`, { 
+            headers,
+            signal: abortController.signal 
+          }),
+          fetch(`http://localhost:8000/api/cursos/${id}/pruebas/`, { 
+            headers,
+            signal: abortController.signal 
+          })
         ]);
 
         if (!cursoRes.ok) throw new Error('Error al obtener el curso');
@@ -56,8 +87,10 @@ export default function CursoEstudiante() {
         if (pruebasRes.ok) setPruebas(await pruebasRes.json());
 
       } catch (err) {
-        console.error('Fetch error:', err);
-        setError(err.message);
+        if (err.name !== 'AbortError') {
+          console.error('Fetch error:', err);
+          setError(err.message);
+        }
       } finally {
         setLoading(false);
       }
@@ -80,6 +113,7 @@ export default function CursoEstudiante() {
     loadCameraDevices();
 
     return () => {
+      abortController.abort();
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => {
           track.stop();
@@ -118,80 +152,113 @@ export default function CursoEstudiante() {
   };
 
   const startCamera = async () => {
+  try {
+    setCameraLoading(true);
+    setVerificationError(null);
+    
+    if (streamRef.current) {
+      stopCamera();
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error('API de cámara no soportada en este navegador');
+    }
+
+    // Verificar permisos primero
+    let permissionGranted = false;
     try {
-      setCameraLoading(true);
-      setVerificationError(null);
+      const permissionStatus = await navigator.permissions.query({ name: 'camera' });
+      permissionGranted = permissionStatus.state === 'granted';
+    } catch (err) {
+      console.log('No se pudo verificar el permiso directamente, procediendo...');
+    }
+
+    const constraints = {
+      video: {
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        facingMode: 'user',
+        deviceId: localStorage.getItem('preferredCamera') || undefined,
+        frameRate: { ideal: 30, min: 15 }
+      },
+      audio: false
+    };
+
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
+      permissionGranted = true;
+    } catch (err) {
+      console.warn('Intento fallido con configuración ideal, probando básica...', err);
+      // Si falla por permisos, pedirlos explícitamente
+      if (err.name === 'NotAllowedError') {
+        setVerificationError('Por favor habilita los permisos de cámara en tu navegador');
+        return false;
+      }
       
-      if (streamRef.current) {
-        stopCamera();
-      }
-
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('API de cámara no soportada');
-      }
-
-      const constraints = {
+      // Intentar con configuración más básica
+      stream = await navigator.mediaDevices.getUserMedia({ 
         video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
           facingMode: 'user',
-          deviceId: localStorage.getItem('preferredCamera') || undefined
+          width: { min: 640, ideal: 1280 },
+          height: { min: 480, ideal: 720 }
         },
         audio: false
-      };
-
-      let stream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia(constraints);
-      } catch (err) {
-        console.warn('Intento fallido con configuración ideal, probando básica...', err);
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      }
-
-      if (!stream) {
-        throw new Error('No se pudo acceder a la cámara');
-      }
-
-      streamRef.current = stream;
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        
-        await new Promise((resolve, reject) => {
-          const timer = setTimeout(() => reject(new Error('Tiempo de espera agotado')), 5000);
-          
-          videoRef.current.onloadedmetadata = () => {
-            clearTimeout(timer);
-            videoRef.current.play().then(resolve).catch(resolve);
-          };
-          
-          videoRef.current.onerror = () => {
-            clearTimeout(timer);
-            reject(new Error('Error en el elemento de video'));
-          };
-        });
-      }
-
-      setCameraActive(true);
-      return true;
-
-    } catch (err) {
-      console.error('Error al iniciar cámara:', err);
-      
-      const errorMessages = {
-        'NotAllowedError': 'Permiso denegado. Por favor habilita la cámara en la configuración de tu navegador.',
-        'NotFoundError': 'No se encontró cámara conectada.',
-        'NotReadableError': 'La cámara está siendo usada por otra aplicación.',
-        'OverconstrainedError': 'Configuración no soportada. Prueba otra cámara.',
-        'default': 'Error al acceder a la cámara. Intenta recargando la página.'
-      };
-
-      setVerificationError(errorMessages[err.name] || errorMessages['default']);
-      return false;
-    } finally {
-      setCameraLoading(false);
+      });
+      permissionGranted = true;
     }
-  };
+
+    if (!stream) {
+      throw new Error('No se pudo acceder a ningún dispositivo de cámara');
+    }
+
+    streamRef.current = stream;
+    
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
+      
+      await new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          reject(new Error('Tiempo de espera agotado para iniciar cámara'));
+        }, 5000);
+        
+        videoRef.current.onloadedmetadata = () => {
+          clearTimeout(timer);
+          videoRef.current.play()
+            .then(resolve)
+            .catch(err => {
+              console.warn('Error al reproducir video:', err);
+              resolve();
+            });
+        };
+        
+        videoRef.current.onerror = () => {
+          clearTimeout(timer);
+          reject(new Error('Error en el elemento de video'));
+        };
+      });
+    }
+
+    setCameraActive(true);
+    return true;
+
+  } catch (err) {
+    console.error('Error al iniciar cámara:', err);
+    
+    const errorMessages = {
+      'NotAllowedError': 'Permiso denegado. Por favor habilita la cámara en la configuración de tu navegador.',
+      'NotFoundError': 'No se encontró cámara conectada.',
+      'NotReadableError': 'La cámara está siendo usada por otra aplicación.',
+      'OverconstrainedError': 'Configuración no soportada. Prueba seleccionando otra cámara en la configuración.',
+      'default': `Error al acceder a la cámara: ${err.message || 'Intenta recargando la página'}`
+    };
+
+    setVerificationError(errorMessages[err.name] || errorMessages['default']);
+    return false;
+  } finally {
+    setCameraLoading(false);
+  }
+};
 
   const stopCamera = () => {
     if (streamRef.current) {
@@ -204,55 +271,89 @@ export default function CursoEstudiante() {
     setCameraActive(false);
   };
 
-  const verifyAttention = async (videoResource) => {
-    try {
-      if (!streamRef.current) {
-        throw new Error('La cámara no está activa');
-      }
-
-      const canvas = document.createElement('canvas');
-      canvas.width = videoRef.current.videoWidth;
-      canvas.height = videoRef.current.videoHeight;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-      
-      const blob = await new Promise((resolve) => {
-        canvas.toBlob(resolve, 'image/jpeg', 0.8);
-      });
-
-      const formData = new FormData();
-      formData.append('frame', blob, 'frame.jpg');
-
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `http://localhost:8000/api/cursos/videos/${videoResource.id}/verify/`, 
-        {
-          method: 'POST',
-          body: formData,
-          headers: {
-            'Authorization': `Token ${token}`
-          }
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Error en la verificación');
-      }
-
-      setAttentionVerified(true);
-      setSelectedVideo({
-        ...videoResource,
-        token: response.token
-      });
-      stopCamera();
-
-    } catch (err) {
-      console.error('Error en verifyAttention:', err);
-      setVerificationError(err.message || 'Error al verificar atención');
-      await startCamera();
+  // page.js - Actualización en la función verifyAttention
+const verifyAttention = async (videoResource) => {
+  try {
+    if (!streamRef.current || !videoRef.current) {
+      throw new Error('La cámara no está activa correctamente');
     }
-  };
+
+    // Verificar permisos de cámara explícitamente
+    try {
+      const permissionStatus = await navigator.permissions.query({ name: 'camera' });
+      if (permissionStatus.state !== 'granted') {
+        throw new Error('Permiso de cámara no concedido');
+      }
+    } catch (err) {
+      console.warn('No se pudo verificar el permiso directamente:', err);
+      // Continuamos asumiendo que si la cámara está activa, tenemos permiso
+    }
+
+    const canvas = document.createElement('canvas');
+    const video = videoRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const blob = await new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            reject(new Error('No se pudo generar el blob de la imagen'));
+            return;
+          }
+          resolve(blob);
+        },
+        'image/jpeg',
+        0.85
+      );
+    });
+
+    const formData = new FormData();
+    formData.append('frame', blob, 'frame.jpg');
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('No se encontró token de autenticación');
+    }
+
+    const response = await fetch(
+      `http://localhost:8000/api/cursos/videos/${videoResource.id}/verify/`, 
+      {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Authorization': `Token ${token}`
+        }
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Error en la verificación');
+    }
+
+    const data = await response.json();
+    if (!data.token) {
+      throw new Error('No se recibió token de acceso al video');
+    }
+
+    setAttentionVerified(true);
+    setSelectedVideo({
+      ...videoResource,
+      token: data.token
+    });
+    stopCamera();
+
+  } catch (err) {
+    console.error('Error en verifyAttention:', err);
+    setVerificationError(err.message || 'Error al verificar atención');
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    await startCamera();
+  }
+};
 
   const handleVideoClick = async (videoResource) => {
     if (attentionVerified && selectedVideo?.id === videoResource.id) {
@@ -267,8 +368,10 @@ export default function CursoEstudiante() {
     setSelectedVideo(null);
     setVerificationError(null);
 
-    await startCamera();
-    setSelectedVideo(videoResource);
+    const cameraStarted = await startCamera();
+    if (cameraStarted) {
+      setSelectedVideo(videoResource);
+    }
   };
 
   const ResourceSection = ({ title, resources, resourceType }) => (
@@ -470,11 +573,24 @@ export default function CursoEstudiante() {
               </div>
 
               {verificationError && (
-                <div className="bg-red-100 text-red-700 p-3 rounded mb-4 flex items-center">
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                  </svg>
-                  {verificationError}
+                <div className="bg-red-100 text-red-700 p-3 rounded mb-4">
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                    <div>
+                      <p className="font-medium">Error de cámara</p>
+                      <p className="text-sm">{verificationError}</p>
+                      {verificationError.includes('Permiso denegado') && (
+                        <button 
+                          onClick={() => window.location.reload()}
+                          className="text-blue-600 text-sm mt-1 hover:underline"
+                        >
+                          Recargar página y volver a intentar
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
               
