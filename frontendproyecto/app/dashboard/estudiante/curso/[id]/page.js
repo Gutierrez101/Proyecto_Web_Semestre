@@ -1,8 +1,9 @@
 'use client';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import NavbarEstudiante from '@/components/layout/NavbarEstudiante';
 import Footer from '@/components/layout/Footer';
+import CameraComponent from '@/components/dashboard/CameraComponent';
 
 export default function CursoEstudiante() {
   const { id } = useParams();
@@ -13,38 +14,11 @@ export default function CursoEstudiante() {
   const [pruebas, setPruebas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedVideo, setSelectedVideo] = useState(null);
-  const [cameraActive, setCameraActive] = useState(false);
-  const [attentionVerified, setAttentionVerified] = useState(false);
-  const [verificationError, setVerificationError] = useState(null);
-  const [cameraLoading, setCameraLoading] = useState(false);
-  const [cameraDevices, setCameraDevices] = useState([]);
-  const [showCameraSettings, setShowCameraSettings] = useState(false);
-  const videoRef = useRef(null);
-  const streamRef = useRef(null);
-
-  // Verificar permisos de cámara al cargar el componente
-  useEffect(() => {
-    const checkCameraPermissions = async () => {
-      try {
-        if (navigator.permissions) {
-          const permissionStatus = await navigator.permissions.query({ name: 'camera' });
-          console.log('Estado inicial de permisos de cámara:', permissionStatus.state);
-          permissionStatus.onchange = () => {
-            console.log('Estado de permiso de cámara cambiado:', permissionStatus.state);
-          };
-        }
-      } catch (err) {
-        console.warn('API de Permissions no soportada:', err);
-      }
-    };
-
-    checkCameraPermissions();
-  }, []);
+  const [showCamera, setShowCamera] = useState(false);
+  const [activeVideo, setActiveVideo] = useState(null);
+  const [attentionResults, setAttentionResults] = useState([]);
 
   useEffect(() => {
-    const abortController = new AbortController();
-
     const fetchData = async () => {
       try {
         const token = localStorage.getItem('token');
@@ -58,25 +32,15 @@ export default function CursoEstudiante() {
           'Content-Type': 'application/json'
         };
 
+        // Obtener todos los datos en paralelo
         const [cursoRes, videosRes, talleresRes, pruebasRes] = await Promise.all([
-          fetch(`http://localhost:8000/api/cursos/${id}/`, { 
-            headers,
-            signal: abortController.signal 
-          }),
-          fetch(`http://localhost:8000/api/cursos/${id}/videos/`, { 
-            headers,
-            signal: abortController.signal 
-          }),
-          fetch(`http://localhost:8000/api/cursos/${id}/talleres/`, { 
-            headers,
-            signal: abortController.signal 
-          }),
-          fetch(`http://localhost:8000/api/cursos/${id}/pruebas/`, { 
-            headers,
-            signal: abortController.signal 
-          })
+          fetch(`http://localhost:8000/api/cursos/${id}/`, { headers }),
+          fetch(`http://localhost:8000/api/cursos/${id}/videos/`, { headers }),
+          fetch(`http://localhost:8000/api/cursos/${id}/talleres/`, { headers }),
+          fetch(`http://localhost:8000/api/cursos/${id}/pruebas/`, { headers })
         ]);
 
+        // Verificar respuestas
         if (!cursoRes.ok) throw new Error('Error al obtener el curso');
         
         const cursoData = await cursoRes.json();
@@ -87,49 +51,17 @@ export default function CursoEstudiante() {
         if (pruebasRes.ok) setPruebas(await pruebasRes.json());
 
       } catch (err) {
-        if (err.name !== 'AbortError') {
-          console.error('Fetch error:', err);
-          setError(err.message);
-        }
+        setError(err.message);
+        console.error('Error:', err);
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-
-    const loadCameraDevices = async () => {
-      try {
-        if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
-          const devices = await navigator.mediaDevices.enumerateDevices();
-          const videoDevices = devices.filter(device => device.kind === 'videoinput');
-          setCameraDevices(videoDevices);
-        }
-      } catch (err) {
-        console.error('Error al enumerar dispositivos:', err);
-      }
-    };
-
-    loadCameraDevices();
-
-    return () => {
-      abortController.abort();
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => {
-          track.stop();
-          if (track.readyState === 'live') {
-            track.enabled = false;
-          }
-        });
-        streamRef.current = null;
-      }
-      if (videoRef.current) {
-        videoRef.current.pause();
-        videoRef.current.srcObject = null;
-      }
-    };
   }, [id, router]);
 
+  // Función para obtener el tipo de archivo
   const getFileType = (filename) => {
     if (!filename) return 'Archivo';
     const extension = filename.split('.').pop().toLowerCase();
@@ -145,235 +77,69 @@ export default function CursoEstudiante() {
     return types[extension] || extension.toUpperCase();
   };
 
+  // Función para formatear la fecha
   const formatDate = (dateString) => {
     if (!dateString) return 'Sin fecha';
     const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
     return new Date(dateString).toLocaleDateString('es-ES', options);
   };
 
-  const startCamera = async () => {
-  try {
-    setCameraLoading(true);
-    setVerificationError(null);
-    
-    if (streamRef.current) {
-      stopCamera();
-    }
-
-    if (!navigator.mediaDevices?.getUserMedia) {
-      throw new Error('API de cámara no soportada en este navegador');
-    }
-
-    // Verificar permisos primero
-    let permissionGranted = false;
-    try {
-      const permissionStatus = await navigator.permissions.query({ name: 'camera' });
-      permissionGranted = permissionStatus.state === 'granted';
-    } catch (err) {
-      console.log('No se pudo verificar el permiso directamente, procediendo...');
-    }
-
-    const constraints = {
-      video: {
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
-        facingMode: 'user',
-        deviceId: localStorage.getItem('preferredCamera') || undefined,
-        frameRate: { ideal: 30, min: 15 }
-      },
-      audio: false
-    };
-
-    let stream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia(constraints);
-      permissionGranted = true;
-    } catch (err) {
-      console.warn('Intento fallido con configuración ideal, probando básica...', err);
-      // Si falla por permisos, pedirlos explícitamente
-      if (err.name === 'NotAllowedError') {
-        setVerificationError('Por favor habilita los permisos de cámara en tu navegador');
-        return false;
-      }
-      
-      // Intentar con configuración más básica
-      stream = await navigator.mediaDevices.getUserMedia({ 
-        video: {
-          facingMode: 'user',
-          width: { min: 640, ideal: 1280 },
-          height: { min: 480, ideal: 720 }
-        },
-        audio: false
-      });
-      permissionGranted = true;
-    }
-
-    if (!stream) {
-      throw new Error('No se pudo acceder a ningún dispositivo de cámara');
-    }
-
-    streamRef.current = stream;
-    
-    if (videoRef.current) {
-      videoRef.current.srcObject = stream;
-      
-      await new Promise((resolve, reject) => {
-        const timer = setTimeout(() => {
-          reject(new Error('Tiempo de espera agotado para iniciar cámara'));
-        }, 5000);
-        
-        videoRef.current.onloadedmetadata = () => {
-          clearTimeout(timer);
-          videoRef.current.play()
-            .then(resolve)
-            .catch(err => {
-              console.warn('Error al reproducir video:', err);
-              resolve();
-            });
-        };
-        
-        videoRef.current.onerror = () => {
-          clearTimeout(timer);
-          reject(new Error('Error en el elemento de video'));
-        };
-      });
-    }
-
-    setCameraActive(true);
-    return true;
-
-  } catch (err) {
-    console.error('Error al iniciar cámara:', err);
-    
-    const errorMessages = {
-      'NotAllowedError': 'Permiso denegado. Por favor habilita la cámara en la configuración de tu navegador.',
-      'NotFoundError': 'No se encontró cámara conectada.',
-      'NotReadableError': 'La cámara está siendo usada por otra aplicación.',
-      'OverconstrainedError': 'Configuración no soportada. Prueba seleccionando otra cámara en la configuración.',
-      'default': `Error al acceder a la cámara: ${err.message || 'Intenta recargando la página'}`
-    };
-
-    setVerificationError(errorMessages[err.name] || errorMessages['default']);
-    return false;
-  } finally {
-    setCameraLoading(false);
-  }
-};
-
-  const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-    setCameraActive(false);
+  const handleVideoPlay = (video) => {
+    setActiveVideo(video);
+    setShowCamera(true);
   };
 
-  // page.js - Actualización en la función verifyAttention
-const verifyAttention = async (videoResource) => {
-  try {
-    if (!streamRef.current || !videoRef.current) {
-      throw new Error('La cámara no está activa correctamente');
-    }
+  const handleStartMonitoring = async (videoElement) => {
+    console.log("Monitoreo iniciado para el video:", activeVideo?.titulo);
+    // Aquí puedes añadir lógica adicional si necesitas
+  };
 
-    // Verificar permisos de cámara explícitamente
+  const handleStopMonitoring = (results) => {
+    if (results.length > 0 && activeVideo) {
+      saveAttentionResults(results);
+    }
+  };
+
+  const saveAttentionResults = async (results) => {
     try {
-      const permissionStatus = await navigator.permissions.query({ name: 'camera' });
-      if (permissionStatus.state !== 'granted') {
-        throw new Error('Permiso de cámara no concedido');
-      }
-    } catch (err) {
-      console.warn('No se pudo verificar el permiso directamente:', err);
-      // Continuamos asumiendo que si la cámara está activa, tenemos permiso
-    }
+      const token = localStorage.getItem('token');
+      if (!token) return;
 
-    const canvas = document.createElement('canvas');
-    const video = videoRef.current;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      // Calcular porcentaje de atención
+      const totalFrames = results.length;
+      const attentiveFrames = results.filter(item => item.data?.is_paying_attention).length;
+      const attentionPercentage = totalFrames > 0 ? (attentiveFrames / totalFrames) * 100 : 0;
 
-    const blob = await new Promise((resolve, reject) => {
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            reject(new Error('No se pudo generar el blob de la imagen'));
-            return;
-          }
-          resolve(blob);
-        },
-        'image/jpeg',
-        0.85
-      );
-    });
-
-    const formData = new FormData();
-    formData.append('frame', blob, 'frame.jpg');
-
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('No se encontró token de autenticación');
-    }
-
-    const response = await fetch(
-      `http://localhost:8000/api/cursos/videos/${videoResource.id}/verify/`, 
-      {
+      const response = await fetch(`http://localhost:8000/api/cursos/videos/${activeVideo.id}/save-results/`, {
         method: 'POST',
-        body: formData,
         headers: {
-          'Authorization': `Token ${token}`
-        }
-      }
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || 'Error en la verificación');
-    }
-
-    const data = await response.json();
-    if (!data.token) {
-      throw new Error('No se recibió token de acceso al video');
-    }
-
-    setAttentionVerified(true);
-    setSelectedVideo({
-      ...videoResource,
-      token: data.token
-    });
-    stopCamera();
-
-  } catch (err) {
-    console.error('Error en verifyAttention:', err);
-    setVerificationError(err.message || 'Error al verificar atención');
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    await startCamera();
-  }
-};
-
-  const handleVideoClick = async (videoResource) => {
-    if (attentionVerified && selectedVideo?.id === videoResource.id) {
-      setSelectedVideo({
-        ...videoResource,
-        token: selectedVideo.token
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          start_time: results[0].timestamp,
+          end_time: results[results.length - 1].timestamp,
+          attention_percentage: attentionPercentage,
+          attention_data: results
+        })
       });
-      return;
-    }
 
-    setAttentionVerified(false);
-    setSelectedVideo(null);
-    setVerificationError(null);
-
-    const cameraStarted = await startCamera();
-    if (cameraStarted) {
-      setSelectedVideo(videoResource);
+      const data = await response.json();
+      if (response.ok) {
+        setAttentionResults(prev => [...prev, {
+          videoId: activeVideo.id,
+          date: new Date().toISOString(),
+          percentage: attentionPercentage
+        }]);
+      }
+      return data;
+    } catch (error) {
+      console.error('Error al guardar resultados:', error);
+      return null;
     }
   };
 
+  // Componente para mostrar recursos
   const ResourceSection = ({ title, resources, resourceType }) => (
     <div className="bg-white p-4 rounded-lg shadow mb-6">
       <h2 className="text-xl font-semibold mb-4 text-gray-800 border-b pb-2">{title}</h2>
@@ -393,43 +159,33 @@ const verifyAttention = async (videoResource) => {
                 </span>
               </div>
 
-              {resourceType === 'video' && resource.archivo && (
-                <>
-                  <div 
-                    className="relative cursor-pointer mb-3 rounded-lg overflow-hidden"
-                    onClick={() => handleVideoClick(resource)}
-                  >
-                    <video 
-                      src={`http://localhost:8000${resource.archivo}`}
-                      className="w-full h-48 object-cover"
-                      muted
-                      disablePictureInPicture
-                      controlsList="nodownload"
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
-                      <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
-                      </svg>
-                    </div>
-                  </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {resourceType === 'video' && (
                   <button
-                    onClick={() => handleVideoClick(resource)}
+                    onClick={() => handleVideoPlay(resource)}
                     className="inline-flex items-center bg-blue-500 text-white px-3 py-2 rounded hover:bg-blue-600 transition-colors"
                   >
-                    Ver Video Completo
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Ver Video
                   </button>
-                </>
-              )}
-              
-              {(resourceType === 'taller' || resourceType === 'prueba') && (
-                <a 
-                  href={`http://localhost:8000${resource.archivo || resource.archivo_xml}`}
-                  download
-                  className="inline-flex items-center bg-green-500 text-white px-3 py-2 rounded hover:bg-green-600 transition-colors mt-2"
-                >
-                  Descargar
-                </a>
-              )}
+                )}
+                
+                {(resourceType === 'taller' || resourceType === 'prueba') && (
+                  <a 
+                    href={`http://localhost:8000${resource.archivo || resource.archivo_xml}`}
+                    download
+                    className="inline-flex items-center bg-green-500 text-white px-3 py-2 rounded hover:bg-green-600 transition-colors"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                    Descargar
+                  </a>
+                )}
+              </div>
 
               <div className="mt-3 text-sm text-gray-500">
                 <p className="flex items-center">
@@ -438,6 +194,14 @@ const verifyAttention = async (videoResource) => {
                   </svg>
                   Subido: {formatDate(resource.fecha_creacion)}
                 </p>
+                {resource.fecha_entrega && (
+                  <p className="flex items-center mt-1">
+                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Entrega: {formatDate(resource.fecha_entrega)}
+                  </p>
+                )}
               </div>
             </div>
           ))}
@@ -498,10 +262,21 @@ const verifyAttention = async (videoResource) => {
       
       <main className="flex-grow p-4 md:p-6">
         <div className="max-w-6xl mx-auto">
+          {/* Encabezado del curso */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">{curso.nombre}</h1>
-            <p className="text-gray-600 mb-4">{curso.descripcion}</p>
-            <div className="flex flex-wrap gap-4 text-sm">
+            <div className="flex justify-between items-start">
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">{curso.nombre}</h1>
+                <p className="text-gray-600 mb-4">{curso.descripcion}</p>
+              </div>
+              <button 
+                onClick={() => setShowCamera(!showCamera)}
+                className={`px-4 py-2 rounded ${showCamera ? 'bg-gray-500 hover:bg-gray-600' : 'bg-[#012E4A] hover:bg-[#034168]'} text-white`}
+              >
+                {showCamera ? 'Ocultar Cámara' : 'Mostrar Cámara'}
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-4 text-sm mt-4">
               <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full">
                 Código: {curso.codigo}
               </span>
@@ -511,6 +286,53 @@ const verifyAttention = async (videoResource) => {
             </div>
           </div>
           
+          {/* Sección de cámara y monitoreo */}
+          {showCamera && (
+            <div className="mb-6 bg-white p-4 rounded-lg shadow">
+              <h2 className="text-xl font-semibold mb-4">Monitoreo de Atención</h2>
+              <CameraComponent 
+                onStartMonitoring={handleStartMonitoring}
+                onStopMonitoring={handleStopMonitoring}
+                videoId={activeVideo?.id}
+              />
+              {activeVideo && (
+                <div className="mt-3 p-3 bg-blue-50 rounded">
+                  <p className="text-blue-800">
+                    <strong>Video activo:</strong> {activeVideo.titulo}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Resumen de atención si hay resultados */}
+          {attentionResults.length > 0 && (
+            <div className="mb-6 bg-white p-4 rounded-lg shadow">
+              <h2 className="text-xl font-semibold mb-4">Tus Resultados de Atención</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {attentionResults.map((result, index) => (
+                  <div key={index} className="border border-gray-200 p-3 rounded-lg">
+                    <h3 className="font-medium">
+                      {videos.find(v => v.id === result.videoId)?.titulo || 'Video'}
+                    </h3>
+                    <div className="mt-2">
+                      <div className="w-full bg-gray-200 rounded-full h-2.5">
+                        <div 
+                          className={`h-2.5 rounded-full ${result.percentage > 70 ? 'bg-green-500' : result.percentage > 40 ? 'bg-yellow-500' : 'bg-red-500'}`} 
+                          style={{ width: `${result.percentage}%` }}
+                        ></div>
+                      </div>
+                      <p className="text-sm mt-1 text-gray-600">
+                        Atención: {result.percentage.toFixed(1)}%
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Secciones de recursos */}
           <ResourceSection 
             title="Videos Educativos" 
             resources={videos} 
@@ -529,241 +351,21 @@ const verifyAttention = async (videoResource) => {
             resourceType="prueba"
           />
           
+          {/* Botón de volver */}
           <div className="mt-6">
             <button 
               onClick={() => router.push('/dashboard/estudiante')}
               className="flex items-center bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 transition-colors"
             >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+              </svg>
               Volver a mis cursos
             </button>
           </div>
         </div>
       </main>
-
-      {/* Modal de verificación de atención */}
-      {cameraActive && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg overflow-hidden w-full max-w-2xl">
-            <div className="flex justify-between items-center bg-gray-800 p-4">
-              <h3 className="text-white font-medium">Verificación de atención</h3>
-              <button 
-                onClick={stopCamera}
-                className="text-white hover:text-gray-300"
-                disabled={cameraLoading}
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-              </button>
-            </div>
-            
-            <div className="p-4">
-              <div className="mb-4">
-                <p className="font-medium">Sigue estos pasos:</p>
-                <ol className="list-decimal pl-5 mt-2 space-y-1 text-sm text-gray-600">
-                  <li>Asegúrate de estar en un lugar bien iluminado</li>
-                  <li>Permite el acceso a la cámara cuando el navegador lo solicite</li>
-                  <li>Mira directamente a la cámara</li>
-                  {cameraDevices.length > 0 && (
-                    <li>
-                      Cámara seleccionada: {cameraDevices.find(d => d.deviceId === streamRef.current?.getVideoTracks()[0]?.getSettings()?.deviceId)?.label || 'Predeterminada'}
-                    </li>
-                  )}
-                </ol>
-              </div>
-
-              {verificationError && (
-                <div className="bg-red-100 text-red-700 p-3 rounded mb-4">
-                  <div className="flex items-center">
-                    <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                    </svg>
-                    <div>
-                      <p className="font-medium">Error de cámara</p>
-                      <p className="text-sm">{verificationError}</p>
-                      {verificationError.includes('Permiso denegado') && (
-                        <button 
-                          onClick={() => window.location.reload()}
-                          className="text-blue-600 text-sm mt-1 hover:underline"
-                        >
-                          Recargar página y volver a intentar
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              <div className="relative bg-black rounded-lg overflow-hidden mb-4 min-h-[300px] flex items-center justify-center">
-                {!videoRef.current?.srcObject ? (
-                  <div className="text-center p-4 text-white">
-                    <svg className="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                    </svg>
-                    {cameraLoading ? (
-                      <p className="font-medium">Iniciando cámara...</p>
-                    ) : (
-                      <p className="font-medium">{verificationError || 'La cámara no está disponible'}</p>
-                    )}
-                  </div>
-                ) : (
-                  <video 
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="w-full h-auto max-h-[60vh]"
-                  />
-                )}
-              </div>
-
-              <div className="flex justify-between items-center">
-                <div className="text-sm text-gray-500">
-                  <button 
-                    onClick={() => setShowCameraSettings(true)}
-                    className="text-blue-600 hover:underline"
-                  >
-                    Configurar cámara
-                  </button>
-                </div>
-                
-                <div className="flex gap-2">
-                  <button
-                    onClick={stopCamera}
-                    className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400 transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  {verificationError ? (
-                    <button
-                      onClick={startCamera}
-                      className="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600 transition-colors"
-                    >
-                      Reintentar
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => verifyAttention(selectedVideo)}
-                      disabled={!videoRef.current?.srcObject || cameraLoading}
-                      className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {cameraLoading ? 'Verificando...' : 'Verificar Atención'}
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de configuración de cámara */}
-      {showCameraSettings && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg overflow-hidden w-full max-w-md">
-            <div className="flex justify-between items-center bg-gray-800 p-4">
-              <h3 className="text-white font-medium">Configuración de cámara</h3>
-              <button 
-                onClick={() => setShowCameraSettings(false)}
-                className="text-white hover:text-gray-300"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-              </button>
-            </div>
-            
-            <div className="p-4">
-              <h4 className="font-medium mb-3">Dispositivos disponibles:</h4>
-              
-              {cameraDevices.length > 0 ? (
-                <ul className="space-y-2 mb-4">
-                  {cameraDevices.map(device => (
-                    <li key={device.deviceId} className="flex items-center">
-                      <input
-                        type="radio"
-                        id={`device-${device.deviceId}`}
-                        name="camera-device"
-                        className="mr-2"
-                        onChange={() => {
-                          localStorage.setItem('preferredCamera', device.deviceId);
-                        }}
-                        defaultChecked={device.deviceId === localStorage.getItem('preferredCamera')}
-                      />
-                      <label htmlFor={`device-${device.deviceId}`}>
-                        {device.label || `Cámara ${device.deviceId.slice(0, 5)}`}
-                      </label>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-gray-500 mb-4">No se detectaron cámaras</p>
-              )}
-              
-              <div className="flex justify-end gap-2">
-                <button
-                  onClick={() => {
-                    localStorage.removeItem('preferredCamera');
-                    setShowCameraSettings(false);
-                  }}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
-                >
-                  Restablecer
-                </button>
-                <button
-                  onClick={() => {
-                    setShowCameraSettings(false);
-                    startCamera();
-                  }}
-                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                >
-                  Aplicar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de reproductor de video */}
-      {selectedVideo && attentionVerified && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg overflow-hidden w-full max-w-4xl">
-            <div className="flex justify-between items-center bg-gray-800 p-4">
-              <h3 className="text-white font-medium">{selectedVideo.titulo}</h3>
-              <button 
-                onClick={() => setSelectedVideo(null)}
-                className="text-white hover:text-gray-300"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-              </button>
-            </div>
-            <video 
-              src={`http://localhost:8000${selectedVideo.archivo}`}
-              className="w-full"
-              controls
-              autoPlay
-              onError={(e) => {
-                console.error('Error en video:', e);
-                setVerificationError('Error al cargar el video');
-                setSelectedVideo(null);
-              }}
-              onAbort={() => {
-                console.log('Reproducción abortada');
-                setSelectedVideo(null);
-              }}
-              onEnded={() => {
-                console.log('Video finalizado');
-                setSelectedVideo(null);
-              }}
-            />
-          </div>
-        </div>
-      )}
-      <Footer />
+      
     </div>
   );
 }
