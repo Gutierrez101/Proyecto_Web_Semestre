@@ -1,8 +1,6 @@
 from django.conf import settings
 from django.db import models
-from rest_framework.views import APIView
 from django.contrib.auth.models import AbstractUser
-
 
 class User(AbstractUser):
     # Campos adicionales si los necesitas
@@ -10,7 +8,6 @@ class User(AbstractUser):
 
 # Primero definimos Curso antes de cualquier modelo que lo use
 class Curso(models.Model):
-    id=models.AutoField(primary_key=True, unique=True)
     nombre = models.CharField(max_length=100)
     descripcion = models.TextField()
     codigo = models.CharField(max_length=20, unique=True)
@@ -57,6 +54,11 @@ class Prueba(ActividadBase):
     plantilla_calificacion = models.TextField(help_text="Instrucciones para la calificación automática")
 
 
+
+
+
+
+#modulo para la atencion del video
 class VideoAccessToken(models.Model):
     token = models.OneToOneField(
         'authtoken.Token',
@@ -77,3 +79,5 @@ class VideoAccessToken(models.Model):
 
     def __str__(self):
         return f"Token para {self.video.titulo} (Expira: {self.expires_at})"
+
+

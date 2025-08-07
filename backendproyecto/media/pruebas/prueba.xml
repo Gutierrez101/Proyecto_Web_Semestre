@@ -1,0 +1,45 @@
+<!-- evaluación_ejemplo.xml -->
+<evaluacion>
+  <metadata>
+    <titulo>Fundamentos de Programación - Examen Parcial</titulo>
+    <fecha_limite>2023-11-30</fecha_limite>
+    <puntaje_total>100</puntaje_total>
+  </metadata>
+
+  <preguntas>
+    <!-- Pregunta de selección múltiple -->
+    <pregunta tipo="seleccion" puntaje="20">
+      <enunciado>¿Qué lenguaje es compilado?</enunciado>
+      <opciones>
+        <opcion correcta="true">C++</opcion>
+        <opcion correcta="false">Python</opcion>
+        <opcion correcta="false">JavaScript</opcion>
+      </opciones>
+      <retroalimentacion>
+        <correcta>C++ es un lenguaje compilado a diferencia de los otros.</correcta>
+        <incorrecta>Revisa la diferencia entre lenguajes compilados e interpretados.</incorrecta>
+      </retroalimentacion>
+    </pregunta>
+
+    <!-- Pregunta de desarrollo -->
+    <pregunta tipo="desarrollo" puntaje="30">
+      <enunciado>Explique el concepto de herencia en POO</enunciado>
+      <claves>
+        <clave>reutilización de código</clave>
+        <clave>clases padre/hijo</clave>
+      </claves>
+    </pregunta>
+
+    <!-- Pregunta de verdadero/falso -->
+    <pregunta tipo="verdadero_falso" puntaje="10">
+      <enunciado>TypeScript es un superconjunto de JavaScript</enunciado>
+      <respuesta correcta="true"/>
+    </pregunta>
+  </preguntas>
+
+  <configuracion>
+    <intentos_permitidos>2</intentos_permitidos>
+    <tiempo_limite_minutos>90</tiempo_limite_minutos>
+    <mostrar_resultados>inmediato</mostrar_resultados>
+  </configuracion>
+</evaluacion>

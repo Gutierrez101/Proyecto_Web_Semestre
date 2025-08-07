@@ -24,7 +24,7 @@ import os
 import re
 import logging
 import random
-#
+
 
 logger=logging.getLogger(__name__)
 
@@ -450,6 +450,15 @@ class PruebaView(ActividadesCursoView):
         serializer = PruebaSerializer(pruebas, many=True)
         return Response(serializer.data)
 
+
+
+
+
+
+
+
+
+#Modulo para streaming de videos
 class VideoStreamView(APIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
@@ -500,6 +509,11 @@ class VideoStreamView(APIView):
             logger.error(f"Error en VideoStreamView: {str(e)}")
             return Response({'error': 'Error interno'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+
+
+
+
 # Modulo para inscripciones a cursos
 class UnirseCursoView(APIView):
     permission_classes = [IsAuthenticated]
@@ -538,9 +552,16 @@ class UnirseCursoView(APIView):
             )
         
 class CursosInscritosView(APIView):
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         cursos = request.user.cursos_inscritos.all()
         serializer = CursoSerializer(cursos, many=True)
         return Response(serializer.data)
+    
+
+
+
+
+    

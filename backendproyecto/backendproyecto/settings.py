@@ -12,7 +12,6 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -55,7 +54,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'users.middleware.HandleBrokenPipeMiddleware',  
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True
@@ -82,11 +80,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'backendproyecto.wsgi.application'
 
-#Para el limite de videos pesados
-DATA_UPLOAD_MAX_MEMORY_SIZE=1024*1024*200
-FILE_UPLOAD_MAX_MEMORY_SIZE=1024*1024*200
-MEDIA_URL='/media/'
-MEDIA_ROOT=os.path.join(BASE_DIR,'media')
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
@@ -154,3 +147,16 @@ REST_FRAMEWORK = {
 # Media files configuration
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+
+#base de datos
+# settings.py
+
+# Configuración de MongoDB
+MONGO_DB = {
+    'host': 'localhost',
+    'port': 27017,
+    'username': '',  # Si necesitas autenticación
+    'password': '',  # Si necesitas autenticación
+    'db_name': 'atencion_db'
+}
