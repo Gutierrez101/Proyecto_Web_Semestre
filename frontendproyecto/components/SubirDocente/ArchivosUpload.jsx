@@ -92,7 +92,6 @@ export default function ArchivosUpload({
             const formData = new FormData();
             formData.append('titulo', titulo);
             formData.append('descripcion', descripcion);
-            formData.append('archivo',archivo);
             
             // Agregar el archivo con el nombre correcto según el tipo
             if (tipo === "video") {
@@ -169,7 +168,7 @@ export default function ArchivosUpload({
                         type="text"
                         value={titulo}
                         onChange={(e) => setTitulo(e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded text-black"
+                        className="w-full p-2 border border-gray-300 rounded"
                         required
                     />
                 </div>
@@ -179,7 +178,7 @@ export default function ArchivosUpload({
                     <textarea
                         value={descripcion}
                         onChange={(e) => setDescripcion(e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded text-black"
+                        className="w-full p-2 border border-gray-300 rounded"
                         rows="3"
                     />
                 </div>
