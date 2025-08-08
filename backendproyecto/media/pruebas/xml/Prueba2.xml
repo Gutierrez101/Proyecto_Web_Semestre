@@ -1,0 +1,26 @@
+<prueba>
+  <preguntas>
+    <question>
+      <text>¿Cuál de estos no es un sistema operativo?</text>
+      <options>
+        <option>Windows</option>
+        <option>Linux</option>
+        <option>macOS</option>
+        <option>Excel</option>
+      </options>
+      <correct>Excel</correct>
+    </question>
+    
+    <question>
+      <text>Selecciona los lenguajes de programación:</text>
+      <options>
+        <option>Python</option>
+        <option>HTML</option>
+        <option>Java</option>
+        <option>CSS</option>
+      </options>
+      <correct>Python</correct>
+      <correct>Java</correct> <!-- Para preguntas múltiple opción -->
+    </question>
+  </preguntas>
+</prueba>

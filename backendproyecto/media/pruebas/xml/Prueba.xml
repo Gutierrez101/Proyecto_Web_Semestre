@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<quiz tema="Base de Datos">
+  <pregunta id="1">
+    <enunciado>¿Qué es una base de datos?</enunciado>
+    <opciones>
+      <opcion correcta="no">Un sistema operativo</opcion>
+      <opcion correcta="no">Un lenguaje de programación</opcion>
+      <opcion correcta="yes">Un conjunto organizado de datos que se pueden acceder y manipular</opcion>
+      <opcion correcta="no">Una herramienta para compilar código</opcion>
+    </opciones>
+  </pregunta>
+
+  <pregunta id="2">
+    <enunciado>¿Cuál es la función principal del lenguaje SQL?</enunciado>
+    <opciones>
+      <opcion correcta="yes">Gestionar y manipular bases de datos</opcion>
+      <opcion correcta="no">Desarrollar aplicaciones móviles</opcion>
+      <opcion correcta="no">Crear hojas de cálculo</opcion>
+      <opcion correcta="no">Controlar sistemas operativos</opcion>
+    </opciones>
+  </pregunta>
+
+  <pregunta id="3">
+    <enunciado>¿Qué tipo de clave identifica de forma única cada fila de una tabla?</enunciado>
+    <opciones>
+      <opcion correcta="no">Clave foránea</opcion>
+      <opcion correcta="yes">Clave primaria</opcion>
+      <opcion correcta="no">Índice</opcion>
+      <opcion correcta="no">Restricción CHECK</opcion>
+    </opciones>
+  </pregunta>
+
+  <pregunta id="4">
+    <enunciado>¿Qué comando SQL se utiliza para recuperar datos de una tabla?</enunciado>
+    <opciones>
+      <opcion correcta="yes">SELECT</opcion>
+      <opcion correcta="no">INSERT</opcion>
+      <opcion correcta="no">DELETE</opcion>
+      <opcion correcta="no">UPDATE</opcion>
+    </opciones>
+  </pregunta>
+
+  <pregunta id="5">
+    <enunciado>¿Qué tipo de base de datos organiza los datos en tablas relacionadas entre sí?</enunciado>
+    <opciones>
+      <opcion correcta="no">Jerárquica</opcion>
+      <opcion correcta="no">De red</opcion>
+      <opcion correcta="yes">Relacional</opcion>
+      <opcion correcta="no">No estructurada</opcion>
+    </opciones>
+  </pregunta>
+</quiz>
