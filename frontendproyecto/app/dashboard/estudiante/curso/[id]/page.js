@@ -69,31 +69,38 @@ export default function CursoEstudiante() {
           const pruebasData = await pruebasRes.json();
           const pruebasConJSON = await Promise.all(
             pruebasData.map(async prueba => {
-              // Si el backend no envía el contenido JSON directamente
-              if (!prueba.json_content && prueba.archivo_json) {
-                try {
+              try {
+                if (!prueba.json_content && prueba.archivo_json) {
                   const jsonUrl = prueba.archivo_json.startsWith('http') 
                     ? prueba.archivo_json 
                     : `http://localhost:8000${prueba.archivo_json}`;
                   
-                  const response = await fetch(`${jsonUrl}?t=${Date.now()}`, {
-                    headers: { 'Authorization': `Token ${token}` },
-                    credentials: 'include'
-                  });
+                  const response = await fetch(jsonUrl, { headers });
                   
                   if (response.ok) {
-                    prueba.json_content = await response.json();
+                    const jsonData = await response.json();
+                    // Validar estructura del JSON
+                    if (!jsonData.quiz_title || !Array.isArray(jsonData.questions)) {
+                      return {
+                        ...prueba,
+                        error: "Formato de cuestionario incorrecto"
+                      };
+                    }
+                    prueba.json_content = jsonData;
                   }
-                } catch (error) {
-                  console.error('Error cargando JSON:', error);
                 }
+                return {
+                  ...prueba,
+                  archivo_json: prueba.archivo_json?.startsWith('http') 
+                    ? prueba.archivo_json 
+                    : `http://localhost:8000${prueba.archivo_json || ''}`
+                };
+              } catch (error) {
+                return {
+                  ...prueba,
+                  error: "Error al cargar el cuestionario"
+                };
               }
-              return {
-                ...prueba,
-                archivo_json: prueba.archivo_json?.startsWith('http') 
-                  ? prueba.archivo_json 
-                  : `http://localhost:8000${prueba.archivo_json || ''}`
-              };
             })
           );
           setPruebas(pruebasConJSON);
@@ -142,34 +149,33 @@ export default function CursoEstudiante() {
   };
 
   const parseJSONQuestions = (jsonContent) => {
-    try {
-      if (!jsonContent || typeof jsonContent !== 'object') {
-        throw new Error('El contenido JSON está vacío o es inválido');
-      }
-
-      // Verificar si el JSON tiene el formato esperado
-      if (!Array.isArray(jsonContent.questions)) {
-        throw new Error('El formato del JSON no contiene preguntas válidas');
-      }
-
-      const questions = jsonContent.questions.map(question => {
-        return {
-          text: question.text || '',
-          options: question.options || [],
-          correctAnswers: question.correctAnswers || []
-        };
-      });
-
-      if (questions.length === 0) {
-        throw new Error('El JSON no contiene preguntas válidas');
-      }
-
-      return questions;
-    } catch (error) {
-      console.error('Error parsing JSON:', error);
-      throw new Error('Error al procesar el cuestionario: ' + error.message);
+  try {
+    // Validación estricta para la vista previa
+    if (!jsonContent) throw new Error('El cuestionario no tiene contenido');
+    
+    const questions = jsonContent.questions || jsonContent.preguntas;
+    if (!Array.isArray(questions)) {
+      throw new Error('Formato inválido: falta el array de preguntas');
     }
-  };
+
+    return questions.map((q, i) => {
+      if (!q.question_text && !q.pregunta) {
+        throw new Error(`Pregunta ${i + 1} no tiene texto`);
+      }
+
+      return {
+        id: q.id || `q${i}`,
+        text: q.question_text || q.pregunta,
+        options: q.options || q.opciones || [],
+        correctAnswer: q.correct_answer ?? q.respuesta_correcta,
+        explanation: q.explanation || q.explicacion
+      };
+    });
+  } catch (error) {
+    console.error('Error en parseJSONQuestions (Estudiante):', error);
+    throw error; // Propaga el error para mostrarlo en la UI
+  }
+};
 
   const handleVideoPlay = async (video) => {
     try {
@@ -191,7 +197,7 @@ export default function CursoEstudiante() {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       stream.getTracks().forEach(track => track.stop());
       
-      router.push(`/dashboard/dashboardEstudiante/talleresEstudiante/realizacionTaller/${taller.id}`);
+      router.push(`/dashboard/estudiante/talleres/${taller.id}`);
     } catch (err) {
       alert('Debes permitir el acceso a la cámara para realizar este taller');
       console.error('Error al acceder a la cámara:', err);
@@ -199,56 +205,96 @@ export default function CursoEstudiante() {
   };
 
   const handlePruebaStart = async (prueba) => {
-    if (!prueba || !prueba.id) {
-      console.error('Prueba no definida o sin ID');
-      alert('La prueba no está configurada correctamente');
-      return;
+  // Validación exhaustiva
+  if (!prueba) {
+    console.error('Prueba es undefined/null');
+    alert('Error: No se ha seleccionado ninguna prueba');
+    return;
+  }
+
+  if (typeof prueba !== 'object' || Array.isArray(prueba)) {
+    console.error('Prueba no es un objeto válido:', prueba);
+    alert('Error: Datos de prueba inválidos');
+    return;
+  }
+
+  if (!prueba.id) {
+    console.error('Prueba no tiene ID:', prueba);
+    alert('Error: La prueba no tiene identificador');
+    return;
+  }
+
+  try {
+    // Verificar contenido JSON
+    let jsonContent = prueba.json_content;
+    const hasJsonFile = prueba.archivo_json;
+    
+    if (!jsonContent && !hasJsonFile) {
+      throw new Error('La prueba no tiene contenido asociado');
     }
 
-    try {
-      // Verificar si tenemos contenido JSON
-      if (!prueba.json_content) {
-        throw new Error('El cuestionario no está disponible');
+    // Cargar JSON desde archivo si es necesario
+    if (!jsonContent && hasJsonFile) {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        router.push('/login');
+        return;
       }
 
-      // Parsear preguntas
-      const preguntas = parseJSONQuestions(prueba.json_content);
+      const jsonUrl = prueba.archivo_json.startsWith('http') 
+        ? prueba.archivo_json 
+        : `http://localhost:8000${prueba.archivo_json}`;
       
-      // Verificar acceso a la cámara
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      stream.getTracks().forEach(track => track.stop());
-
-      // Preparar datos para la página de prueba
-      const pruebaData = {
-        titulo: prueba.titulo,
-        descripcion: prueba.descripcion,
-        fecha_entrega: prueba.fecha_entrega,
-        id: prueba.id
-      };
-
-      // Redirigir con los datos
-      const queryParams = new URLSearchParams();
-      queryParams.append('preguntas', JSON.stringify(preguntas));
-      queryParams.append('pruebaData', JSON.stringify(pruebaData));
-
-      router.push(`/dashboard/estudiante/pruebas/${prueba.id}?${queryParams.toString()}`);
-      
-    } catch (err) {
-      console.error('Error al iniciar prueba:', {
-        error: err,
-        prueba: prueba
+      const response = await fetch(jsonUrl, {
+        headers: { 'Authorization': `Token ${token}` }
       });
       
-      let errorMessage = 'No se pudo iniciar la prueba.';
-      if (err.message.includes('JSON')) {
-        errorMessage = 'El formato del cuestionario es incorrecto.';
-      } else if (err.message.includes('disponible')) {
-        errorMessage = 'El cuestionario no está disponible temporalmente.';
+      if (!response.ok) {
+        throw new Error(`Error ${response.status} al cargar el JSON`);
       }
-
-      alert(`${errorMessage} Por favor informa al administrador.`);
+      
+      jsonContent = await response.json();
     }
-  };
+
+    // Validar estructura del JSON
+    if (!jsonContent || typeof jsonContent !== 'object') {
+      throw new Error('El contenido de la prueba no es válido');
+    }
+
+    // Verificar acceso a cámara
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      stream.getTracks().forEach(track => track.stop());
+    } catch (cameraError) {
+      throw new Error('Debes permitir el acceso a la cámara para realizar esta prueba');
+    }
+
+    // Preparar datos para la redirección
+    const pruebaData = {
+      id: prueba.id,
+      titulo: prueba.titulo || 'Prueba sin título',
+      descripcion: prueba.descripcion || '',
+      tiempo_limite: prueba.tiempo_limite || 30,
+      fecha_entrega: prueba.fecha_entrega || null,
+      preguntas: parseJSONQuestions(jsonContent)
+    };
+
+    // Redirección con validación de parámetros
+    const queryParams = new URLSearchParams();
+    queryParams.append('pruebaData', JSON.stringify(pruebaData));
+    
+    router.push(`/dashboard/estudiante/pruebas/${prueba.id}?${queryParams.toString()}`);
+
+  } catch (error) {
+    console.error('Error en handlePruebaStart:', {
+      error: error.message,
+      prueba: prueba,
+      stack: error.stack
+    });
+    
+    alert(`Error al iniciar la prueba: ${error.message}`);
+  }
+};
 
   const handleStartMonitoring = () => {
     setIsMonitoring(true);
@@ -286,13 +332,21 @@ export default function CursoEstudiante() {
         {resources.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {resources.map(resource => (
+              
               <div 
-                key={resource.id} 
-                className={`border p-4 rounded-lg transition-all ${isCompleted(resource.id) ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:shadow-md'}`}
+                key={'${resourcesType}-${resource.id}}'}
+                className={`border p-4 rounded-lg transition-all ${
+                  resource.error ? 'border-red-200 bg-red-50' :
+                  isCompleted(resource.id) ? 'border-green-500 bg-green-50' : 
+                  'border-gray-200 hover:shadow-md'
+                }`}
               >
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="font-bold text-lg text-gray-800">{resource.titulo}</h3>
+                    {resource.error && (
+                      <p className="text-red-600 text-sm mt-1">{resource.error}</p>
+                    )}
                     {resource.descripcion && (
                       <p className="text-gray-600 mt-1 mb-3">{resource.descripcion}</p>
                     )}
@@ -313,7 +367,10 @@ export default function CursoEstudiante() {
                   {resourceType === 'video' && (
                     <button
                       onClick={() => handleVideoPlay(resource)}
-                      className={`inline-flex items-center px-3 py-2 rounded transition-colors ${isCompleted(resource.id) ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-blue-500 text-white hover:bg-blue-600'}`}
+                      className={`inline-flex items-center px-3 py-2 rounded transition-colors ${
+                        isCompleted(resource.id) ? 'bg-green-500 text-white hover:bg-green-600' : 
+                        'bg-blue-500 text-white hover:bg-blue-600'
+                      }`}
                     >
                       <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
@@ -326,7 +383,10 @@ export default function CursoEstudiante() {
                   {resourceType === 'taller' && (
                     <button
                       onClick={() => handleTallerStart(resource)}
-                      className={`inline-flex items-center px-3 py-2 rounded transition-colors ${isCompleted(resource.id) ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-yellow-500 text-white hover:bg-yellow-600'}`}
+                      className={`inline-flex items-center px-3 py-2 rounded transition-colors ${
+                        isCompleted(resource.id) ? 'bg-green-500 text-white hover:bg-green-600' : 
+                        'bg-yellow-500 text-white hover:bg-yellow-600'
+                      }`}
                     >
                       <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
@@ -338,7 +398,11 @@ export default function CursoEstudiante() {
                   {resourceType === 'prueba' && (
                     <button
                       onClick={() => handlePruebaStart(resource)}
-                      className={`inline-flex items-center px-3 py-2 rounded transition-colors ${isCompleted(resource.id) ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-purple-500 text-white hover:bg-purple-600'}`}
+                      className={`inline-flex items-center px-3 py-2 rounded transition-colors ${
+                        isCompleted(resource.id) ? 'bg-green-500 text-white hover:bg-green-600' : 
+                        'bg-purple-500 text-white hover:bg-purple-600'
+                      }`}
+                      disabled={!!resource.error}
                     >
                       <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
@@ -433,7 +497,10 @@ export default function CursoEstudiante() {
               <div className="flex flex-col items-end">
                 <button 
                   onClick={() => setShowCamera(!showCamera)}
-                  className={`px-4 py-2 rounded ${showCamera ? 'bg-gray-500 hover:bg-gray-600' : 'bg-[#012E4A] hover:bg-[#034168]'} text-white mb-2`}
+                  className={`px-4 py-2 rounded ${
+                    showCamera ? 'bg-gray-500 hover:bg-gray-600' : 
+                    'bg-[#012E4A] hover:bg-[#034168]'
+                  } text-white mb-2`}
                 >
                   {showCamera ? 'Ocultar Cámara' : 'Mostrar Cámara'}
                 </button>
@@ -521,7 +588,11 @@ export default function CursoEstudiante() {
                     <div className="mt-2">
                       <div className="w-full bg-gray-200 rounded-full h-2.5">
                         <div 
-                          className={`h-2.5 rounded-full ${result.percentage > 70 ? 'bg-green-500' : result.percentage > 40 ? 'bg-yellow-500' : 'bg-red-500'}`} 
+                          className={`h-2.5 rounded-full ${
+                            result.percentage > 70 ? 'bg-green-500' : 
+                            result.percentage > 40 ? 'bg-yellow-500' : 
+                            'bg-red-500'
+                          }`} 
                           style={{ width: `${result.percentage}%` }}
                         ></div>
                       </div>

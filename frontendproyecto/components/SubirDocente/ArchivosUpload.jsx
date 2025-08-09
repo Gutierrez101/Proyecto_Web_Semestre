@@ -29,24 +29,23 @@ export default function ArchivosUpload({
                 setError("Solo se permite archivo MP4");
             }
         } else if (tipo === "prueba") {
-            if (file.name.toLowerCase().endsWith('.json')) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    try {
-                        const jsonContent = JSON.parse(e.target.result);
-                        if (!jsonContent.preguntas || !Array.isArray(jsonContent.preguntas)) {
-                            setError("El JSON debe contener un array 'preguntas'");
-                            return;
-                        }
-                        setArchivo(file);
-                    } catch (err) {
-                        setError("El archivo JSON no es válido");
-                    }
-                };
-                reader.readAsText(file);
-            } else {
-                setError("Solo se permite archivo JSON para pruebas");
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                const jsonContent = JSON.parse(e.target.result);
+                console.log("JSON parseado:", jsonContent); 
+                // Validar que todas las preguntas tengan "texto"
+                if (!jsonContent.questions || !jsonContent.questions[0].texto) {
+                    setError("El JSON debe tener 'questions' y cada pregunta debe incluir 'texto'");
+                    return;
+                  }
+
+                setArchivo(file);
+            } catch (err) {
+                setError("El JSON no es válido"+ err.message);
             }
+            };
+            reader.readAsText(file);
         } else {
             const tiposPermitidos = [
                 'application/pdf',
@@ -82,81 +81,178 @@ export default function ArchivosUpload({
         setError('');
     };
 
-    const manejarEnviar = async () => {
-        if (!titulo) {
-            setError('El título es requerido');
+   const manejarEnviar = async () => {
+    // Validaciones iniciales
+    if (!titulo) {
+        setError('El título es requerido');
+        return;
+    }
+    
+    if (!archivo) {
+        setError('Por favor selecciona un archivo antes de enviar');
+        return;
+    }
+
+    setIsSubmitting(true);
+    setError('');
+
+    try {
+        // Verificar autenticación
+        const token = localStorage.getItem('token');
+        if (!token) {
+            router.push('/login');
             return;
         }
+
+        // Configurar FormData básico
+        const formData = new FormData();
+        formData.append('titulo', titulo);
+        formData.append('descripcion', descripcion || '');
+        formData.append('curso', cursoId); // Campo crítico que soluciona el NOT NULL constraint
         
-        if (!archivo) {
-            setError('Por favor selecciona un archivo antes de enviar');
-            return;
+        if (fechaEntrega) {
+            formData.append('fecha_entrega', fechaEntrega);
         }
 
-        setIsSubmitting(true);
-        setError('');
-
-        try {
-            const token = localStorage.getItem('token');
-            if (!token) {
-                router.push('/login');
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append('titulo', titulo);
-            formData.append('descripcion', descripcion);
+        // Determinar endpoint y campos específicos
+        let endpoint = '';
+        
+        if (tipo === "video") {
+            endpoint = `http://localhost:8000/api/cursos/${cursoId}/videos/`;
+            formData.append('archivo', archivo);
+        } 
+        else if (tipo === "prueba") {
+            endpoint = `http://localhost:8000/api/cursos/${cursoId}/pruebas/`;
             
-            if (fechaEntrega) {
-                formData.append('fecha_entrega', fechaEntrega);
-            }
+            // 1. Leer y validar el archivo JSON
+            const jsonContent = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    try {
+                        const content = JSON.parse(e.target.result);
+                        
+                        // Validación estricta del formato
+                        if (!content.questions || !Array.isArray(content.questions)) {
+                            throw new Error("El JSON debe contener un array 'questions'");
+                        }
 
-            let endpoint = '';
-            
-            if (tipo === "video") {
-                endpoint = `http://localhost:8000/api/cursos/${cursoId}/videos/`;
-                formData.append('archivo', archivo);
-            } else if (tipo === "prueba") {
-                endpoint = `http://localhost:8000/api/cursos/${cursoId}/pruebas/`;
-                formData.append('archivo_json', archivo);
-                formData.append('plantilla_calificacion', 'Plantilla estándar');
-            } else {
-                endpoint = `http://localhost:8000/api/cursos/${cursoId}/talleres/`;
-                formData.append('archivo', archivo);
-                formData.append('formato_permitido', 'PDF, Word, Excel');
-            }
+                        // Transformación al formato que espera Django
+                        const transformed = {
+                            questions: content.questions.map((q, index) => {
+                                // Validar campos requeridos
+                                const questionText = q.question_text || q.pregunta || q.texto;
+                                if (!questionText) {
+                                    throw new Error(`Pregunta ${index + 1} no tiene texto`);
+                                }
 
-            const response = await fetch(endpoint, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Token ${token}`
-                },
-                body: formData
+                                const options = q.options || q.opciones || [];
+                                if (!Array.isArray(options) || options.length < 2) {
+                                    throw new Error(`Pregunta ${index + 1} debe tener al menos 2 opciones`);
+                                }
+
+                                const correctAnswer = q.correct_answer || q.respuesta_correcta || q.correctAnswer;
+                                if (!correctAnswer) {
+                                    throw new Error(`Pregunta ${index + 1} no tiene respuesta correcta`);
+                                }
+
+                                return {
+                                    question_text: questionText,
+                                    options: options,
+                                    correct_answer: correctAnswer
+                                };
+                            })
+                        };
+
+                        if (transformed.questions.length === 0) {
+                            throw new Error("El JSON no contiene preguntas válidas");
+                        }
+
+                        resolve(transformed);
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+                reader.onerror = () => reject(new Error("Error al leer el archivo"));
+                reader.readAsText(archivo);
             });
 
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(
-                    errorData.error || 
-                    errorData.detail || 
-                    `Error al subir el ${tipo} (${response.status})`
-                );
-            }
-
-            const responseData = await response.json();
-            alert(`${getTipoTexto()} subido correctamente`);
-            router.push(`/dashboard/docente/contenidoCursoDoc?curso=${cursoId}`);
-            
-        } catch (err) {
-            console.error(`Error al subir ${tipo}:`, err);
-            setError(
-                err.message || 
-                `Error al subir el ${tipo}. Por favor intenta nuevamente.`
-            );
-        } finally {
-            setIsSubmitting(false);
+            // 2. Agregar ambos componentes al FormData
+            formData.append('archivo_json', archivo);
+            formData.append('json_content', JSON.stringify(jsonContent));
+            formData.append('plantilla_calificacion', 'Plantilla estándar');
+        } 
+        else {
+            // Para talleres
+            endpoint = `http://localhost:8000/api/cursos/${cursoId}/talleres/`;
+            formData.append('archivo', archivo);
+            formData.append('formato_permitido', 'PDF, Word, Excel');
         }
-    };
+
+        // Depuración: Mostrar contenido del FormData
+        console.log("Datos a enviar:");
+        for (let [key, value] of formData.entries()) {
+            console.log(key, value);
+        }
+
+        // Enviar al backend
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Token ${token}`
+            },
+            body: formData
+        });
+
+        // Manejo de errores detallado
+        if (!response.ok) {
+            let errorData = {};
+            try {
+                errorData = await response.json();
+                console.error("Error detallado del backend:", errorData);
+            } catch (e) {
+                console.error("El backend no devolvió JSON en el error");
+            }
+            
+            throw new Error(
+                errorData.detail || 
+                errorData.error || 
+                `Error al subir el ${tipo} (${response.status})`
+            );
+        }
+
+        // Éxito
+        const responseData = await response.json();
+        console.log("Respuesta exitosa:", responseData);
+        alert(`${getTipoTexto()} subido correctamente`);
+        router.push(`/dashboard/docente/contenidoCursoDoc?curso=${cursoId}`);
+        
+    } catch (err) {
+        console.error(`Error completo al subir ${tipo}:`, err);
+        setError(
+            err.message || 
+            `Error al subir el ${tipo}. Por favor verifica el formato e intenta nuevamente.`
+        );
+    } finally {
+        setIsSubmitting(false);
+    }
+};
+
+// Función auxiliar para parsear el JSON (opcional)
+const parsearArchivoJSON = (file) => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const content = JSON.parse(e.target.result);
+                if (!content.questions) throw new Error("El JSON debe contener 'questions'");
+                resolve(content);
+            } catch (err) {
+                reject(err);
+            }
+        };
+        reader.readAsText(file);
+    });
+};
 
     const manejarVolver = () => {
         router.push(`/dashboard/docente/contenidoCursoDoc?curso=${cursoId}`);

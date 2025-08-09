@@ -1,0 +1,14 @@
+{
+  "questions": [
+    {
+      "texto": "¿Cuál es la capital de Italia?",
+      "options": ["Roma", "Madrid", "París"],
+      "correctAnswer": "Roma"
+    },
+    {
+      "texto": "¿Qué lenguaje se usa en Django?",
+      "options": ["Python", "Java", "C++"],
+      "correctAnswer": "Python"
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "preguntas": [
+    {
+      "id": 1,
+      "pregunta": "¿Qué significa SQL?",
+      "opciones": [
+        "Structured Query Language",
+        "Simple Query Language",
+        "Standard Query Logic",
+        "System Query Language"
+      ],
+      "respuesta_correcta": 0,
+      "explicacion": "SQL significa Structured Query Language, es el lenguaje estándar para gestionar bases de datos relacionales"
+    },
+    {
+      "id": 2,
+      "pregunta": "¿Cuál es la función principal de una clave primaria?",
+      "opciones": [
+        "Acelerar las consultas",
+        "Identificar únicamente cada registro en una tabla",
+        "Conectar con otras bases de datos",
+        "Encriptar los datos"
+      ],
+      "respuesta_correcta": 1,
+      "explicacion": "Una clave primaria identifica de manera única cada registro en una tabla, garantizando que no haya duplicados"
+    },
+    {
+      "id": 3,
+      "pregunta": "¿Qué comando SQL se utiliza para agregar nuevos datos a una tabla?",
+      "opciones": [
+        "ADD",
+        "CREATE",
+        "INSERT",
+        "UPDATE"
+      ],
+      "respuesta_correcta": 2,
+      "explicacion": "INSERT es el comando SQL que se utiliza para agregar nuevos registros a una tabla existente"
+    },
+    {
+      "id": 4,
+      "pregunta": "¿Qué es una base de datos relacional?",
+      "opciones": [
+        "Una base de datos que solo almacena números",
+        "Una base de datos donde los datos se organizan en tablas relacionadas",
+        "Una base de datos temporal",
+        "Una base de datos que no permite modificaciones"
+      ],
+      "respuesta_correcta": 1,
+      "explicacion": "Una base de datos relacional organiza la información en tablas que pueden estar relacionadas entre sí mediante claves"
+    },
+    {
+      "id": 5,
+      "pregunta": "¿Para qué sirve el comando SELECT en SQL?",
+      "opciones": [
+        "Para eliminar datos",
+        "Para crear tablas",
+        "Para consultar y mostrar datos",
+        "Para modificar la estructura de la tabla"
+      ],
+      "respuesta_correcta": 2,
+      "explicacion": "SELECT permite consultar y recuperar datos de una o más tablas en la base de datos"
+    }
+  ]
+}

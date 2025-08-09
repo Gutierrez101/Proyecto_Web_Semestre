@@ -625,49 +625,47 @@ class SubmitPruebaView(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
 class PruebaView(ActividadesCursoView):
-    def post(self, request, curso_id):
+    def get(self, request, curso_id):
+        """Obtener todas las pruebas de un curso"""
         try:
             curso = self.get_curso(curso_id)
-            
-            # Validar que el usuario es el profesor del curso
-            if curso.profesor != request.user:
-                return Response(
-                    {'error': 'No tienes permisos para agregar pruebas a este curso'},
-                    status=status.HTTP_403_FORBIDDEN
-                )
-
-            # Preparar datos para el serializador
-            data = request.data.copy()
-            data['curso'] = curso.id
-
-            serializer = PruebaSerializer(data=data)
-            serializer.is_valid(raise_exception=True)
-            prueba = serializer.save()
-
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-
+            pruebas = Prueba.objects.filter(curso=curso)
+            serializer = PruebaSerializer(pruebas, many=True)
+            return Response(serializer.data)
         except Http404:
             return Response(
                 {'error': 'Curso no encontrado'},
                 status=status.HTTP_404_NOT_FOUND
             )
-        except ValidationError as e:
-            return Response(
-                {'error': 'Error de validación', 'detalles': e.detail},
-                status=status.HTTP_400_BAD_REQUEST
-            )
         except Exception as e:
-            logger.error(f"Error al crear prueba: {str(e)}", exc_info=True)
+            logger.error(f"Error al obtener pruebas: {str(e)}")
             return Response(
                 {'error': 'Error interno del servidor'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
-    def get(self, request, curso_id):
-        curso = self.get_curso(curso_id)
-        pruebas = Prueba.objects.filter(curso=curso)
-        serializer = PruebaSerializer(pruebas, many=True)
-        return Response(serializer.data)
+    
+    def post(self, request, curso_id):
+        try:
+            serializer = PruebaSerializer(data=request.data, context={
+                'request': request,
+                'curso_id': curso_id
+            })
+            serializer.is_valid(raise_exception=True)
+            
+            # Procesamiento adicional si es necesario
+            prueba = serializer.save()
+            
+            return Response({
+                'status': 'success',
+                'data': PruebaSerializer(prueba).data
+            }, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            return Response({
+                'status': 'error',
+                'message': str(e),
+                'hint': "El archivo debe tener el formato especificado en la documentación"
+            }, status=status.HTTP_400_BAD_REQUEST)
 
 
 

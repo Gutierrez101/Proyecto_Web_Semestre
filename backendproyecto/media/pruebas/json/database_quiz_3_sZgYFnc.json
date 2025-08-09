@@ -1,0 +1,30 @@
+{
+  "titulo": "Examen de Bases de Datos",
+  "descripcion": "Evaluación sobre conceptos básicos de SQL",
+  "preguntas": [
+    {
+      "id": 1,
+      "pregunta": "¿Qué significa SQL?",
+      "opciones": [
+        "Structured Query Language",
+        "Simple Query Language",
+        "Standard Query Logic",
+        "System Query Language"
+      ],
+      "respuesta_correcta": 0,
+      "explicacion": "SQL significa Structured Query Language..."
+    },
+    {
+      "id": 2,
+      "pregunta": "¿Cuál es la función principal de una clave primaria?",
+      "opciones": [
+        "Acelerar las consultas",
+        "Identificar únicamente cada registro en una tabla",
+        "Conectar con otras bases de datos",
+        "Encriptar los datos"
+      ],
+      "respuesta_correcta": 1,
+      "explicacion": "Una clave primaria identifica de manera única..."
+    }
+  ]
+}

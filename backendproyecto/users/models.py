@@ -55,18 +55,6 @@ class Taller(ActividadBase):
     archivo = models.FileField(upload_to='talleres/')
     formato_permitido = models.CharField(max_length=50, default='PDF, Word, Excel')
 
-class Prueba(models.Model):
-    titulo = models.CharField(max_length=200)
-    descripcion = models.TextField(blank=True)
-    curso = models.ForeignKey(Curso, on_delete=models.CASCADE)
-    fecha_creacion = models.DateTimeField(auto_now_add=True)
-    fecha_entrega = models.DateTimeField(null=True, blank=True)
-    archivo_json = models.FileField(upload_to='pruebas/json/', null=True, blank=True)
-    json_content = models.JSONField(null=True, blank=True)
-    
-    def __str__(self):
-        return self.titulo
-
 
 class TallerEnviado(models.Model):
     estudiante = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -89,9 +77,19 @@ class Prueba(models.Model):
     curso = models.ForeignKey(Curso, on_delete=models.CASCADE)
     titulo = models.CharField(max_length=200)
     descripcion = models.TextField(blank=True)
-    archivo_xml = models.FileField(upload_to='pruebas/xml/')
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_entrega = models.DateTimeField(null=True, blank=True)
+    archivo_json = models.FileField(upload_to='pruebas/json/', null=True, blank=True)
+    json_content = models.JSONField(null=True, blank=True)
+    
+    def __str__(self):
+        return self.titulo
+    
+    def clean(self):
+        if not self.titulo:
+            raise ValidationError("El título es obligatorio")
+        if self.archivo_json and not self.archivo_json.name.endswith('.json'):
+            raise ValidationError("El archivo debe ser un JSON")
 
 class ResultadoPrueba(models.Model):
     estudiante = models.ForeignKey(User, on_delete=models.CASCADE)

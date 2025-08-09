@@ -84,41 +84,35 @@ class TallerSerializer(serializers.ModelSerializer):
     
 #Serializador de pruebas
 class PruebaSerializer(serializers.ModelSerializer):
-    
-    archivo_json=serializers.FileField(required=False, allow_null=True)
-    json_content=serializers.JSONField(required=False, allow_null=True)
-    
-    
     class Meta:
         model = Prueba
-        fields = ['id', 'titulo', 'descripcion', 'curso', 'fecha_creacion', 
-                 'fecha_entrega', 'archivo_json', 'json_content']
-        read_only_fields = ['id', 'fecha_creacion']
-        
-    def validate(self, data):
-        # Validación del archivo JSON si se proporciona
-        archivo_json = data.get('archivo_json')
-        if archivo_json:
-            try:
-                content = archivo_json.read().decode('utf-8')
-                data['json_content'] = json.loads(content)
-                archivo_json.seek(0)  # Rebobinar el archivo
-            except json.JSONDecodeError:
-                raise serializers.ValidationError({
-                    'archivo_json': 'El archivo no contiene un JSON válido'
-                })
-            except UnicodeDecodeError:
-                raise serializers.ValidationError({
-                    'archivo_json': 'El archivo no está en formato UTF-8'
-                })
-        return data
-        
-    def create(self, validated_data):
-        # Si se subió un archivo JSON, leer su contenido
-        if 'archivo_json' in validated_data and validated_data['archivo_json']:
-            json_file = validated_data['archivo_json']
-            validated_data['json_content'] = json.loads(json_file.read().decode('utf-8'))
-            json_file.seek(0)  # Rebobinar el archivo
-            
-        return super().create(validated_data)
+        fields = ['titulo', 'descripcion', 'fecha_entrega', 'archivo_json', 'json_content', 'curso']
+        extra_kwargs = {
+            'json_content': {'required': True},
+            'archivo_json': {'required': True},
+            'curso': {'required': True}  # Asegurar que el curso es obligatorio
+        }
 
+    def validate_json_content(self, value):
+        try:
+            if not isinstance(value, dict):
+                raise serializers.ValidationError("Debe ser un objeto JSON")
+            
+            questions = value.get('questions', [])
+            if not isinstance(questions, list):
+                raise serializers.ValidationError("El campo 'questions' debe ser un array")
+            
+            for i, q in enumerate(questions):
+                if not q.get('question_text'):
+                    raise serializers.ValidationError(f"Pregunta {i} no tiene 'question_text'")
+                
+                if not isinstance(q.get('options', []), list):
+                    raise serializers.ValidationError(f"Pregunta {i}: 'options' debe ser un array")
+                
+                if not q.get('correct_answer'):
+                    raise serializers.ValidationError(f"Pregunta {i} no tiene 'correct_answer'")
+            
+            return value
+        except Exception as e:
+            # Mejorar mensajes de error
+            raise serializers.ValidationError(f"Error en el formato JSON: {str(e)}")
