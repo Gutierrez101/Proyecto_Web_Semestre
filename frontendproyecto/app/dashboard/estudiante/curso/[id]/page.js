@@ -398,19 +398,28 @@ export default function CursoEstudiante() {
                   )}
 
                   {resourceType === 'prueba' && (
-                    <button
-                      onClick={() => handlePruebaStart(resource)}
-                      className={`inline-flex items-center px-3 py-2 rounded transition-colors ${
-                        isCompleted(resource.id) ? 'bg-green-500 text-white hover:bg-green-600' : 
-                        'bg-purple-500 text-white hover:bg-purple-600'
-                      }`}
-                      disabled={!!resource.error}
-                    >
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
-                      </svg>
-                      {isCompleted(resource.id) ? 'Ver Resultados' : 'Realizar Prueba'}
-                    </button>
+                    isCompleted(resource.id) ? (
+                      <button
+                        onClick={() => router.push(`/dashboard/estudiante/curso/${id}/simulacion?prueba=${resource.id}`)}
+                        className="inline-flex items-center px-3 py-2 rounded transition-colors bg-green-500 text-white hover:bg-green-600"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                        Ver Resultados
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handlePruebaStart(resource)}
+                        className="inline-flex items-center px-3 py-2 rounded transition-colors bg-purple-500 text-white hover:bg-purple-600"
+                        disabled={!!resource.error}
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                        Realizar Prueba
+                      </button>
+                    )
                   )}
                 </div>
 
