@@ -1,4 +1,3 @@
-
 """
 URL configuration for backendproyecto project.
 
@@ -19,6 +18,7 @@ from django.contrib import admin
 from django.urls import path
 from django.conf import settings
 from django.conf.urls.static import static
+from api.views import EvaluarPruebaIA
 from users.api_views import (
     RegisterView, 
     CustomLoginView, 
@@ -51,6 +51,7 @@ urlpatterns = [
     path('api/cursos/', CursoListView.as_view(), name='curso-create'),
     path('api/cursos/<int:pk>/', CursoDetailView.as_view(), name='curso-detail'),
     path('api/cursos/<int:curso_id>/videos/', VideoView.as_view(), name='video-actividad'),
+
     
     #Apis de talleres
     path('api/talleres/', TallerView.as_view(), name='talleres-list'),
@@ -74,6 +75,8 @@ urlpatterns = [
     path('api/cursos/videos/<int:video_id>/verify/', verify_attention, name='verify_attention'),
     path('api/cursos/videos/<int:video_id>/stream/', VideoStreamView.as_view(), name='video_stream'),
     path('api/cursos/videos/<int:video_id>/save-results/',SaveAttentionResults.as_view(),name='save-attention-results'),
+    #API IA
+    path('api/evaluar-ia/', EvaluarPruebaIA.as_view(), name='evaluar-ia'),
 ]
 
 # para los archivos multimedia
