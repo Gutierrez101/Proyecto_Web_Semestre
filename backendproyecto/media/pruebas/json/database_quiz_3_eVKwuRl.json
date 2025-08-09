@@ -1,0 +1,14 @@
+{
+  "questions": [
+    {
+      "texto": "¿Cuál es la capital de Francia?",
+      "options": ["París", "Londres", "Berlín"],
+      "correct_answer": "París"
+    },
+    {
+      "texto": "¿2 + 2?",
+      "options": ["3", "4", "5"],
+      "correct_answer": "4"
+    }
+  ]
+}
