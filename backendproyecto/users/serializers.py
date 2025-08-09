@@ -86,7 +86,7 @@ class TallerSerializer(serializers.ModelSerializer):
 class PruebaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Prueba
-        fields = ['titulo', 'descripcion', 'fecha_entrega', 'archivo_json', 'json_content', 'curso']
+        fields = ['id','titulo', 'descripcion', 'fecha_entrega', 'archivo_json', 'json_content', 'curso']
         extra_kwargs = {
             'json_content': {'required': True},
             'archivo_json': {'required': True},

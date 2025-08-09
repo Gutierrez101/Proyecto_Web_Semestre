@@ -586,6 +586,45 @@ class PruebaDetailView(APIView):
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+    
+    def post(self, request, prueba_id):
+        try:
+            prueba = get_object_or_404(Prueba, pk=prueba_id)
+            estudiante = request.user
+
+            # Validar que el estudiante está en el curso
+            if not prueba.curso.estudiantes.filter(id=estudiante.id).exists():
+                return Response(
+                    {"error": "No estás inscrito en este curso"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Validar datos mínimos
+            if 'respuestas' not in request.data:
+                return Response(
+                    {"error": "El campo 'respuestas' es requerido"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Guardar resultados
+            resultado, created = ResultadoPrueba.objects.update_or_create(
+                prueba=prueba,
+                estudiante=estudiante,
+                defaults={
+                    'respuestas': request.data['respuestas'],
+                    'fecha_fin': timezone.now(),
+                }
+            )
+
+            return Response(
+                {"success": "Prueba enviada correctamente"},
+                status=status.HTTP_200_OK
+            )
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 class PruebaListView(APIView):
     def get(self, request, curso_id=None):
@@ -603,13 +642,26 @@ class SubmitPruebaView(APIView):
             prueba = get_object_or_404(Prueba, pk=prueba_id)
             estudiante = request.user
             
+            if not prueba.curso.estudiantes.filter(id=estudiante.id).exists():
+                return Response(
+                    {"error": "No estás inscrito en este curso"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            if 'respuesta' not in request.data:
+                return Response(
+                    {"error": "El campo 'respuesta' es requerido"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            
             # Crear o actualizar la respuesta
             respuesta, created = ResultadoPrueba.objects.update_or_create(
                 prueba=prueba,
                 estudiante=estudiante,
                 defaults={
-                    'respuestas': request.data.get('respuestas', {}),
-                    'fecha_envio': request.data.get('fecha_envio')
+                    'respuesta': request.data['respuesta'],
+                    'fecha_fin': timezone.now()
                 }
             )
             

@@ -212,17 +212,19 @@ export default function CursoEstudiante() {
     return;
   }
 
+  if (!prueba?.id){
+    console.error('Prueba no valida:',prueba);
+    alert ('Error: La prueba seleccionad no es valida');
+    return;
+  }
+
   if (typeof prueba !== 'object' || Array.isArray(prueba)) {
     console.error('Prueba no es un objeto válido:', prueba);
     alert('Error: Datos de prueba inválidos');
     return;
   }
 
-  if (!prueba.id) {
-    console.error('Prueba no tiene ID:', prueba);
-    alert('Error: La prueba no tiene identificador');
-    return;
-  }
+  
 
   try {
     // Verificar contenido JSON
@@ -283,7 +285,7 @@ export default function CursoEstudiante() {
     const queryParams = new URLSearchParams();
     queryParams.append('pruebaData', JSON.stringify(pruebaData));
     
-    router.push(`/dashboard/estudiante/pruebas/${prueba.id}?${queryParams.toString()}`);
+    router.push(`/dashboard/estudiante/pruebas/${prueba.id}`);
 
   } catch (error) {
     console.error('Error en handlePruebaStart:', {

@@ -160,6 +160,12 @@ export default function PruebaPage() {
         return;
       }
 
+      if (Object.keys(respuestas).length === 0) {
+        alert('Debes responder al menos una pregunta');
+        return;
+      }
+
+
       // Validar que se hayan respondido todas las preguntas
       if (prueba.preguntas.length !== Object.keys(respuestas).length) {
         const confirmar = window.confirm(
@@ -175,22 +181,22 @@ export default function PruebaPage() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          respuestas,
-          fecha_envio: new Date().toISOString(),
+          respuesta:JSON.stringify(respuestas),
+          //fecha_envio: new Date().toISOString(),
           resultados_atencion: attentionResults
         })
       });
 
-      if (response.ok) {
-        alert('Prueba enviada correctamente');
-        router.push('/dashboard/estudiante');
-      } else {
+      if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Error al enviar la prueba');
+        throw new Error(errorData.error || 'Error al enviar la prueba');
       }
+
+      alert('¡Prueba enviada correctamente!');
+      router.push('/dashboard/estudiante');
     } catch (err) {
-      console.error('Error al enviar prueba:', err);
-      alert(`Error al enviar la prueba: ${err.message}`);
+      console.error('Error al enviar:', err);
+      alert(`Error: ${err.message}`);
     }
   };
 

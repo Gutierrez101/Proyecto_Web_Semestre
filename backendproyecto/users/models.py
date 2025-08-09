@@ -94,9 +94,9 @@ class Prueba(models.Model):
 class ResultadoPrueba(models.Model):
     estudiante = models.ForeignKey(User, on_delete=models.CASCADE)
     prueba = models.ForeignKey(Prueba, on_delete=models.CASCADE)
-    puntaje = models.IntegerField()
-    porcentaje = models.FloatField()
-    respuestas = models.JSONField()
+    puntaje = models.IntegerField(null=True, blank=True)
+    porcentaje = models.FloatField(null=True,blank=True)
+    respuesta = models.JSONField()
     fecha_inicio = models.DateTimeField(
         auto_now_add=False,
         null=True,
