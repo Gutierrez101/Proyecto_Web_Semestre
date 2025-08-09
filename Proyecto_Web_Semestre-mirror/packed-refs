@@ -1,0 +1,8 @@
+# pack-refs with: peeled fully-peeled sorted 
+d7d521b2b2da7036060f89af700abde9a05d9e90 refs/heads/Back_Angeli
+929b96ae2fb6c6ea3966157be7377b9605bb44bf refs/heads/backend
+6654e502571c4d8a43a54d881d0c1d1c3106ed31 refs/heads/frontend
+9af7093383399aeba202146aab7069140a1ae815 refs/heads/frontend2
+d8edd31f000b945b81f9248bb89e9e68e11a0bbf refs/heads/main
+02109944b4f71b08e3513ec9897c52aca4ccd9c4 refs/heads/master
+5b6fa4c984119368a477c915beae3667395c05d0 refs/heads/respaldo_back
