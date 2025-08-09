@@ -5,7 +5,7 @@ from apiAI.api import evaluar_prueba_openai
 class EvaluarPruebaIA(APIView):
     def post(self, request):
         banco_preguntas = request.data.get('preguntas', [])
-        api_key = '***REMOVED***'
+        api_key = 'API OPENAI'
         resultado = evaluar_prueba_openai(banco_preguntas, api_key)
         if resultado:
             return Response(resultado)
