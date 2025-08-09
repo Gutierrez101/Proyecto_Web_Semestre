@@ -84,6 +84,11 @@ class TallerSerializer(serializers.ModelSerializer):
     
 #Serializador de pruebas
 class PruebaSerializer(serializers.ModelSerializer):
+    
+    archivo_json=serializers.FileField(required=False, allow_null=True)
+    json_content=serializers.JSONField(required=False, allow_null=True)
+    
+    
     class Meta:
         model = Prueba
         fields = ['id', 'titulo', 'descripcion', 'curso', 'fecha_creacion', 

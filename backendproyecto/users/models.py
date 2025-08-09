@@ -1,6 +1,5 @@
 from django.conf import settings
 from django.db import models
-import json
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import AbstractUser
 
