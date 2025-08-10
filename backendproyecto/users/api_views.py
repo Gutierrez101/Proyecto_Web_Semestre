@@ -19,7 +19,7 @@ from .serializers import RegisterSerializer, CursoSerializer
 from .models import Curso, VideoAccessToken
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from api.views import EvaluarPruebaIA
+#from api.views import EvaluarPruebaIA
 from datetime import datetime
 import cv2
 import numpy as np
@@ -1052,13 +1052,13 @@ class ResultadoPruebaView(APIView):
         
         if resultado.fecha_fin and (timezone.now() - resultado.fecha_fin) > timeout:
             # Intentar regenerar evaluación automáticamente
-            if EvaluarPruebaIA().regenerar_evaluacion(resultado):
+            #if EvaluarPruebaIA().regenerar_evaluacion(resultado):
                 return Response(
                     self._prepare_response_data(resultado, resultado.prueba),
                     status=status.HTTP_200_OK
                 )
             
-            return Response(
+            #return Response(
                 {
                     "status": "error",
                     "code": "evaluation_failed",
@@ -1066,7 +1066,7 @@ class ResultadoPruebaView(APIView):
                     "solution": "Por favor contacta al instructor"
                 },
                 status=status.HTTP_424_FAILED_DEPENDENCY
-            )
+            #)
 
         # Respuesta para evaluación en proceso
         return Response(
