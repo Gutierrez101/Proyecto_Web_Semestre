@@ -1,0 +1,104 @@
+{
+  "questions": [
+    {
+      "texto": "¿Cuál de los siguientes es un pilar fundamental de la programación orientada a objetos?",
+      "options": ["Encapsulamiento", "Recursividad", "Compilación"],
+      "correct_answer": "Encapsulamiento"
+    },
+    {
+      "texto": "En POO, ¿cómo se llama el proceso de crear una nueva clase basada en otra existente?",
+      "options": ["Instanciación", "Herencia", "Abstracción"],
+      "correct_answer": "Herencia"
+    },
+    {
+      "texto": "¿Qué término describe el ocultamiento de los detalles internos de un objeto, exponiendo solo lo necesario?",
+      "options": ["Polimorfismo", "Encapsulamiento", "Sobrecarga"],
+      "correct_answer": "Encapsulamiento"
+    },
+    {
+      "texto": "¿Cuál es el nombre que recibe la capacidad de un objeto de tomar diferentes formas según el contexto?",
+      "options": ["Polimorfismo", "Herencia", "Abstracción"],
+      "correct_answer": "Polimorfismo"
+    },
+    {
+      "texto": "En POO, ¿qué es una clase?",
+      "options": ["Un objeto en ejecución", "Una plantilla para crear objetos", "Una función especial"],
+      "correct_answer": "Una plantilla para crear objetos"
+    },
+    {
+      "texto": "¿Cómo se llama el proceso de crear un objeto a partir de una clase?",
+      "options": ["Herencia", "Instanciación", "Sobrecarga"],
+      "correct_answer": "Instanciación"
+    },
+    {
+      "texto": "¿Cuál de estos modificadores de acceso permite que un atributo sea accesible solo dentro de la misma clase?",
+      "options": ["public", "private", "protected"],
+      "correct_answer": "private"
+    },
+    {
+      "texto": "¿Qué palabra clave en muchos lenguajes POO se utiliza para referirse a la instancia actual de la clase?",
+      "options": ["self", "this", "object"],
+      "correct_answer": "this"
+    },
+    {
+      "texto": "En POO, ¿cómo se llama una clase que no puede ser instanciada directamente?",
+      "options": ["Clase abstracta", "Clase final", "Clase protegida"],
+      "correct_answer": "Clase abstracta"
+    },
+    {
+      "texto": "¿Qué concepto permite que varias clases compartan la misma interfaz pero implementen comportamientos diferentes?",
+      "options": ["Herencia múltiple", "Polimorfismo", "Encapsulamiento"],
+      "correct_answer": "Polimorfismo"
+    },
+    {
+      "texto": "En POO, ¿qué es un método constructor?",
+      "options": ["Un método que destruye objetos", "Un método que inicializa un objeto", "Un método que copia datos"],
+      "correct_answer": "Un método que inicializa un objeto"
+    },
+    {
+      "texto": "¿Qué principio de POO promueve que cada clase tenga una única responsabilidad?",
+      "options": ["Principio de única responsabilidad", "Herencia simple", "Acoplamiento bajo"],
+      "correct_answer": "Principio de única responsabilidad"
+    },
+    {
+      "texto": "En Java, ¿qué palabra clave se utiliza para heredar de una clase?",
+      "options": ["extends", "inherits", "superclass"],
+      "correct_answer": "extends"
+    },
+    {
+      "texto": "¿Cuál es la principal ventaja del encapsulamiento?",
+      "options": ["Permitir herencia múltiple", "Proteger los datos internos de modificaciones no autorizadas", "Acelerar la ejecución del programa"],
+      "correct_answer": "Proteger los datos internos de modificaciones no autorizadas"
+    },
+    {
+      "texto": "¿Qué es la sobrecarga de métodos?",
+      "options": ["Crear varios métodos con el mismo nombre pero diferente firma", "Reescribir un método en una subclase", "Duplicar el código en varios métodos"],
+      "correct_answer": "Crear varios métodos con el mismo nombre pero diferente firma"
+    },
+    {
+      "texto": "En POO, ¿cómo se llama el método que se ejecuta automáticamente al destruir un objeto?",
+      "options": ["Destructor", "Finalizador", "Liberador"],
+      "correct_answer": "Destructor"
+    },
+    {
+      "texto": "¿Qué palabra clave en muchos lenguajes POO permite llamar al constructor de la clase padre?",
+      "options": ["super", "parent", "base"],
+      "correct_answer": "super"
+    },
+    {
+      "texto": "En POO, ¿qué es el polimorfismo en tiempo de compilación?",
+      "options": ["Sobrecarga de métodos", "Sobrescritura de métodos", "Herencia múltiple"],
+      "correct_answer": "Sobrecarga de métodos"
+    },
+    {
+      "texto": "¿Qué significa que una clase sea 'final' en algunos lenguajes como Java?",
+      "options": ["Que no puede ser heredada", "Que no puede crear objetos", "Que no puede tener métodos"],
+      "correct_answer": "Que no puede ser heredada"
+    },
+    {
+      "texto": "¿Cuál de las siguientes NO es una característica de la POO?",
+      "options": ["Herencia", "Encapsulamiento", "Programación estructurada"],
+      "correct_answer": "Programación estructurada"
+    }
+  ]
+}
