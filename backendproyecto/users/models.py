@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.urls import reverse
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import AbstractUser
 
@@ -46,6 +47,10 @@ class ActividadBase(models.Model):
 class Video(ActividadBase):
     archivo = models.FileField(upload_to='videos/')
     duracion = models.PositiveIntegerField(help_text="Duración en segundos", null=True, blank=True)
+    
+    def get_absolute_url(self):
+        return reverse('video_stream', kwargs={'video_id':self.id})
+    
     class Meta:
         verbose_name = 'Video'
         verbose_name_plural = 'Videos'
