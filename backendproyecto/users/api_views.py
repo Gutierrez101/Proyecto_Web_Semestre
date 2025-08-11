@@ -30,7 +30,9 @@ import re
 import logging
 import random
 
-
+from rest_framework.decorators import authentication_classes, permission_classes
+from rest_framework.authentication import TokenAuthentication
+from rest_framework.permissions import IsAuthenticated
 logger=logging.getLogger(__name__)
 
 #importaciones para talleres, videos y pruebas
@@ -42,19 +44,27 @@ import uuid
 # ===== NUEVAS FUNCIONES PARA DATASETS =====
 # DAiSEE mejorado
 def classify_daisee(landmarks):
-    eye_ratio = calculate_eye_aspect_ratio_mediapipe(landmarks)
-    mouth_open = abs(landmarks[13].y - landmarks[14].y)  # Apertura boca
-    brow_height = abs(landmarks[386].y - landmarks[282].y)
-    head_pose = estimate_head_pose_mediapipe(landmarks, (640,480))  # Asume resolución
-    
-    if eye_ratio < 0.18 and mouth_open < 0.02:
-        return "BORED"
-    elif brow_height > 0.12 and mouth_open > 0.03:
-        return "CONFUSED"
-    elif eye_ratio > 0.25 and brow_height < 0.08:
-        return "ATTENTIVE"
-    else:
-        return "NEUTRAL"
+    """landmarks es una lista de objetos NormalizedLandmark, no diccionarios"""
+    try:
+        # Calcular EAR usando propiedades de objetos
+        eye_ratio = calculate_eye_aspect_ratio_mediapipe(landmarks)
+        
+        # Acceder a propiedades, no como diccionario
+        mouth_open = abs(landmarks[13].y - landmarks[14].y)  # 
+        brow_height = abs(landmarks[386].y - landmarks[282].y)  # 
+        
+        # head_pose ya viene como diccionario desde estimate_head_pose_mediapipe
+        if eye_ratio < 0.18 and mouth_open < 0.02:
+            return "BORED"
+        elif brow_height > 0.12 and mouth_open > 0.03:
+            return "CONFUSED"
+        elif eye_ratio > 0.25 and brow_height < 0.08:
+            return "ATTENTIVE"
+        else:
+            return "NEUTRAL"
+    except Exception as e:
+        logger.error(f"Error in classify_daisee: {str(e)}")
+        return "ERROR"
 
 # HPoD9 mejorado
 def classify_hpod(head_pose):
@@ -80,7 +90,6 @@ def classify_hpod(head_pose):
         return "TILT_RIGHT"
     else:
         return "FRONT_TILTED"
-
 
 
 def calculate_deviation(hpod_pose):
@@ -183,10 +192,12 @@ def save_attention_results(request, video_id):
 from django.views.decorators.csrf import csrf_exempt
 
 @api_view(['POST'])
-@csrf_exempt  
+@csrf_exempt
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])  
 def verify_attention(request, video_id):
     try:
-        # Validaciones iniciales (se mantienen igual)
+        # Validaciones para autenticidad y seguridades 
         if not request.user.is_authenticated:
             return Response({'error':'No autenticado'}, status=401)
 
@@ -322,19 +333,33 @@ def calculate_weighted_score(analysis):
         'hpod': 0.2
     }
     
+    # Si no hay detección facial, dar puntaje base
+    if not analysis['mediapipe'].get('face_detected', False):
+        return 35.0  # Puntaje base cuando no hay rostro
+
     # Puntaje MediaPipe (ojos + postura)
     mp_score = 100 if (analysis['mediapipe']['eye_aspect_ratio'] > 0.25 and 
                        analysis['mediapipe']['head_pose']['pitch'] < 25) else 40
     
     # Puntaje DAiSEE
-    daisee_score = 100 if analysis['daisee']['state'] == "ATTENTIVE" else 30
+    daisee_state = analysis['daisee']['state']
+    if daisee_state == "ATTENTIVE":
+        daisee_score = 100
+    elif daisee_state == "NEUTRAL":
+        daisee_score = 60
+    elif daisee_state in ["BORED", "CONFUSED"]:
+        daisee_score = 30
+    else:  # NO_FACE, ERROR
+        daisee_score = 20
     
     # Puntaje HPoD9
     hpod_score = 100 - (analysis['hpod']['deviation'] * 100)
     
-    return (mp_score * weights['mediapipe'] + 
-            daisee_score * weights['daisee'] + 
-            hpod_score * weights['hpod'])
+    final_score = (mp_score * weights['mediapipe'] + 
+                   daisee_score * weights['daisee'] + 
+                   hpod_score * weights['hpod'])
+
+    return max(0.0, min(100.0, final_score)) 
 
 def analyze_frame_with_weights(frame):
     try:
@@ -346,8 +371,7 @@ def analyze_frame_with_weights(frame):
         mediapipe_data = analyze_attention_with_mediapipe(frame)
         
         # Verificar si MediaPipe detectó landmarks
-        if 'landmarks' not in mediapipe_data or not mediapipe_data['landmarks']:
-            # Retornar datos por defecto si no hay detección
+        if not mediapipe_data.get('face_detected', False):
             return {
                 'mediapipe': {
                     'eye_aspect_ratio': 0.0,
@@ -365,15 +389,31 @@ def analyze_frame_with_weights(frame):
                 'timestamp': datetime.utcnow().isoformat()
             }
         
-        # 2. Clasificación DAiSEE y HPoD9 solo si hay landmarks
-        daisee_state = classify_daisee(mediapipe_data['landmarks'])
+        # 2. Los landmarks ya están disponibles en mediapipe_data
+        # NO necesitas convertirlos porque classify_daisee los usa directamente
+        landmarks_objects = mediapipe_data.get('landmarks')  # Objetos NormalizedLandmark
+        
+        daisee_state = classify_daisee(landmarks_objects) if landmarks_objects else "NO_FACE"
         hpod_pose = classify_hpod(mediapipe_data['head_pose'])
+        
+        # 3. Para el response final, convertir landmarks a diccionarios si es necesario
+        landmarks_list = []
+        if landmarks_objects:
+            for landmark in landmarks_objects:
+                landmarks_list.append({
+                    'x': landmark.x,
+                    'y': landmark.y,
+                    'z': landmark.z
+                })
+        
+        # Actualizar mediapipe_data con landmarks convertidos
+        mediapipe_data['landmarks'] = landmarks_list
         
         return {
             'mediapipe': mediapipe_data,
             'daisee': {
                 'state': daisee_state,
-                'confidence': 1.0
+                'confidence': 1.0 if daisee_state != "ERROR" else 0.0
             },
             'hpod': {
                 'pose': hpod_pose,
@@ -383,8 +423,7 @@ def analyze_frame_with_weights(frame):
         }
         
     except Exception as e:
-        logger.error(f"Error en analyze_frame_with_weights: {str(e)}")
-        # Retornar datos por defecto en caso de error
+        logger.error(f"Error en analyze_frame_with_weights: {str(e)}", exc_info=True)
         return {
             'mediapipe': {
                 'eye_aspect_ratio': 0.0,
@@ -424,7 +463,10 @@ def analyze_attention_with_mediapipe(frame):
             return {
                 'is_paying_attention': False,
                 'reason': 'Frame inválido',
-                'landmarks': None
+                'landmarks': None,
+                'eye_aspect_ratio': 0.0,
+                'head_pose': {'pitch': 0, 'yaw': 0, 'roll': 0},
+                'face_detected': False
             }
         
         # Inicializar modelos de MediaPipe
@@ -499,18 +541,26 @@ def calculate_eye_aspect_ratio_mediapipe(landmarks):
     return (left_ear + right_ear) / 2
 
 def get_ear_mediapipe(eye_points):
-    # Calcular distancias para EAR (Eye Aspect Ratio)
-    # Usando las coordenadas normalizadas de MediaPipe
-    A = distance_3d(eye_points[1], eye_points[5])
-    B = distance_3d(eye_points[2], eye_points[4])
-    C = distance_3d(eye_points[0], eye_points[3])
-    return (A + B) / (2.0 * C)
+    """eye_points son objetos NormalizedLandmark"""
+    try:
+        # Calcular distancias usando propiedades de objetos
+        A = distance_3d_landmarks(eye_points[1], eye_points[5])
+        B = distance_3d_landmarks(eye_points[2], eye_points[4])
+        C = distance_3d_landmarks(eye_points[0], eye_points[3])
+        return (A + B) / (2.0 * C) if C > 0 else 0.0
+    except Exception as e:
+        logger.error(f"Error in get_ear_mediapipe: {str(e)}")
+        return 0.0
 
-def distance_3d(point1, point2):
-    # Calcular distancia euclidiana entre puntos 3D
-    return ((point1.x - point2.x)**2 + 
-            (point1.y - point2.y)**2 + 
-            (point1.z - point2.z)**2)**0.5
+def distance_3d_landmarks(point1, point2):
+    """Calcular distancia entre objetos NormalizedLandmark"""
+    try:
+        return ((point1.x - point2.x)**2 + 
+                (point1.y - point2.y)**2 + 
+                (point1.z - point2.z)**2)**0.5
+    except Exception as e:
+        logger.error(f"Error calculating landmark distance: {str(e)}")
+        return 0.0
 
 def estimate_head_pose_mediapipe(landmarks, frame_shape):
     # Puntos clave para estimar pose

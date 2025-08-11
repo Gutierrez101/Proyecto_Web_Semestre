@@ -655,3 +655,4 @@ def get_django_session_stats(user_id: str, video_id: str = None, taller_id: str 
             'last_session': None,
             'error': str(e)
         }
+    

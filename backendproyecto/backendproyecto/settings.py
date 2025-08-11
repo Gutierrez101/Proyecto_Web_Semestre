@@ -155,8 +155,6 @@ MEDIA_ROOT = BASE_DIR / 'media'
 FILE_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100MB
 DATA_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100MB
 
-#base de datos
-# settings.py
 
 # Configuración de MongoDB
 MONGO_DB = {
