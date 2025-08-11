@@ -257,6 +257,7 @@ export default function PruebaPage() {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
+  
   if (loading) {
     return (
       <div className="flex flex-col min-h-screen bg-gray-50">
