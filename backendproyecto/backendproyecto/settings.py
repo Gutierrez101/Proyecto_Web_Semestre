@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'api',  # Nueva aplicación añadida
 ]
 
 AUTH_USER_MODEL = 'users.User'

@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import User, Curso, Video, Taller, Prueba
+from .models import User, Curso, Video, Taller, Prueba, ResultadoPrueba
 
 # Registro del modelo User
 admin.site.register(User, UserAdmin)
@@ -32,3 +32,5 @@ class PruebaAdmin(admin.ModelAdmin):
     list_filter = ('curso',)
     search_fields = ('titulo', 'descripcion')
     raw_id_fields = ('curso',)
+
+admin.site.register(ResultadoPrueba)

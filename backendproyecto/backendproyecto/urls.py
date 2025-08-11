@@ -1,4 +1,3 @@
-
 """
 URL configuration for backendproyecto project.
 
@@ -19,7 +18,7 @@ from django.contrib import admin
 from django.urls import path
 from django.conf import settings
 from django.conf.urls.static import static
-from api.views import EvaluarPruebaIA
+from api.views import EvaluarPruebaIA, ResultadosEstudianteIA
 from users.api_views import (
     RegisterView, 
     CustomLoginView, 
@@ -68,6 +67,7 @@ urlpatterns = [
     path('api/pruebas/<int:prueba_id>/submit/', SubmitPruebaView.as_view(), name='submit-prueba'),
     path('api/pruebas/<int:prueba_id>/resultado/', ResultadoPruebaView.as_view(), name='prueba-resultado'),
     path('api/evaluar-ia/', EvaluarPruebaIA.as_view(), name='evaluar-ia'),
+    path('api/resultados-estudiante/', ResultadosEstudianteIA.as_view(), name='resultados-estudiante'),
 
     #inscripcion de cursos
     path('api/cursos/unirse/', UnirseCursoView.as_view(), name='unirse-curso'),

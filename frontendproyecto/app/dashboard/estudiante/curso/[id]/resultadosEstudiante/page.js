@@ -1,12 +1,14 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import NavbarEstudiante from '@/components/layout/NavbarEstudiante';
 import Footer from '@/components/layout/Footer';
 
 export default function ResultadosEstudiante() {
   const { id } = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const pruebaId = searchParams.get('prueba');
   const [resultados, setResultados] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -19,7 +21,8 @@ export default function ResultadosEstudiante() {
           router.push('/login');
           return;
         }
-        const res = await fetch(`http://localhost:8000/api/cursos/${id}/resultados/`, {
+        // Cambia el endpoint para usar el nuevo de resultados evaluados por OpenAI
+        const res = await fetch(`http://localhost:8000/api/resultados-estudiante/?prueba=${pruebaId}`, {
           headers: { 'Authorization': `Token ${token}` }
         });
         if (!res.ok) throw new Error('No se pudieron cargar los resultados');
@@ -31,8 +34,8 @@ export default function ResultadosEstudiante() {
         setLoading(false);
       }
     };
-    fetchResultados();
-  }, [id, router]);
+    if (pruebaId) fetchResultados();
+  }, [id, pruebaId, router]);
 
   if (loading) {
     return (

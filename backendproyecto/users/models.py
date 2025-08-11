@@ -3,6 +3,7 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import AbstractUser
 
+
 class User(AbstractUser):
     # Campos adicionales si los necesitas
     pass
@@ -115,7 +116,7 @@ class ResultadoPrueba(models.Model):
 
 
     def __str__(self):
-        return f"{self.estudiante.username} - {self.prueba.titulo} ({self.porcentaje}%)"
+        return f"{self.estudiante} - {self.prueba}"
 
 
 

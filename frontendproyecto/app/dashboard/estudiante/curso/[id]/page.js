@@ -413,7 +413,7 @@ export default function CursoEstudiante() {
                   {resourceType === 'prueba' && (
                     isCompleted(resource.id) ? (
                       <button
-                        onClick={() => router.push(`/dashboard/estudiante/pruebas/${resource.id}/resultado`)}
+                        onClick={() => router.push(`/dashboard/estudiante/curso/${id}/resultadosEstudiante?prueba=${resource.id}`)}
                         className="inline-flex items-center px-3 py-2 rounded transition-colors bg-green-500 text-white hover:bg-green-600"
                       >
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

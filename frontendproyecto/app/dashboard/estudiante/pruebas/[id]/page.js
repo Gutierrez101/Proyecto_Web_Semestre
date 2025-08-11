@@ -19,6 +19,7 @@ export default function PruebaPage() {
   const [timeRemaining, setTimeRemaining] = useState(null);
   const timerRef = useRef(null);
   const videoRef = useRef(null);
+  const cursoId = searchParams.get('curso');
 
   // Función mejorada para normalizar preguntas
   const parseJSONQuestions = (jsonContent) => {
@@ -243,7 +244,7 @@ export default function PruebaPage() {
         icon: 'success'
       });
 
-      router.push(`/dashboard/estudiante/pruebas/${id}/resultado`);
+      router.push(`/dashboard/estudiante/curso/${cursoId}/resultadosEstudiante?prueba=${id}`);
     } catch (error) {
       console.error('Error submitting test:', error);
       Swal.fire('Error', error.message || 'Error al enviar la prueba', 'error');
