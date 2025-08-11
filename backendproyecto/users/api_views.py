@@ -16,10 +16,10 @@ from rest_framework.response import Response
 from django.http import StreamingHttpResponse
 from rest_framework.authentication import TokenAuthentication
 from .serializers import RegisterSerializer, CursoSerializer
-from .models import Curso, VideoAccessToken
+from .models import Curso, VideoAccessToken, TallerEnviado
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-#from api.views import EvaluarPruebaIA
+from api.views import EvaluarPruebaIA
 from datetime import datetime
 import cv2
 import numpy as np
@@ -1189,9 +1189,10 @@ class SubmitTallerView(APIView):
                 taller_id=taller_id
             )
 
-            # Opcional: Guardar la respuesta del estudiante en otro modelo si es necesario
-            # TallerRespuesta.objects.create(...)
-
+            TallerEnviado.objects.get_or_create(
+                taller=taller,
+                estudiante=request.user,
+            )
             return Response({
                 'status': 'success',
                 'message': 'Taller enviado correctamente',
@@ -1213,6 +1214,48 @@ class SubmitTallerView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+class TallerEntregaDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, taller_id):
+        try:
+            taller = Taller.objects.get(id=taller_id)
+            entrega = TallerEnviado.objects.filter(
+                taller=taller,
+                estudiante=request.user
+            ).first()
+
+            respuesta_val=None
+
+            if entrega:
+                if getattr(entrega,'respuesta',None):
+                    respuesta_val=entrega.respuesta
+                else:
+                    archivos_campos=['respuesta_archivo','respuesta','archivo_respuesta']
+                    for campo_nombre in archivos_campos:
+                        campo=getattr(entrega,campo_nombre,None)
+                        if campo and getattr(campo,'name',None):
+                            try:
+                                respuesta_val=request.build_absolute_uri(campo.url)
+                            except Exception:
+                                respuesta_val=getattr(campo,'name',str(campo))
+                            break
+
+            data = {
+                "titulo": taller.titulo,
+                "descripcion": taller.descripcion,
+                "archivo": (request.build_absolute_uri(taller.archivo.url)
+                    if getattr(taller, 'archivo', None) and getattr(taller.archivo, 'name', None)
+                    else None),                
+                    "respuesta": entrega.respuesta if entrega else None
+            }
+            return Response(data, status=status.HTTP_200_OK)
+
+        except Taller.DoesNotExist:
+            return Response(
+                {"error": "Taller no encontrado"},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
 
 #Modulo para streaming de videos

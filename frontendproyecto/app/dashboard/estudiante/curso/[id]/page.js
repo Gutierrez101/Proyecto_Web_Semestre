@@ -26,6 +26,10 @@ export default function CursoEstudiante() {
   });
   const videoRef = useRef(null);
 
+  // Estados para el modal (mantén estos)
+  const [showEntregaModal, setShowEntregaModal] = useState(false);
+  const [entregaDetalles, setEntregaDetalles] = useState(null);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -79,6 +83,7 @@ export default function CursoEstudiante() {
                   
                   if (response.ok) {
                     const jsonData = await response.json();
+                    // Validar estructura del JSON
                     if (!jsonData.quiz_title || !Array.isArray(jsonData.questions)) {
                       return {
                         ...prueba,
@@ -148,32 +153,33 @@ export default function CursoEstudiante() {
   };
 
   const parseJSONQuestions = (jsonContent) => {
-    try {
-      if (!jsonContent) throw new Error('El cuestionario no tiene contenido');
-      
-      const questions = jsonContent.questions || jsonContent.preguntas;
-      if (!Array.isArray(questions)) {
-        throw new Error('Formato inválido: falta el array de preguntas');
+  try {
+    // Validación estricta para la vista previa
+    if (!jsonContent) throw new Error('El cuestionario no tiene contenido');
+    
+    const questions = jsonContent.questions || jsonContent.preguntas;
+    if (!Array.isArray(questions)) {
+      throw new Error('Formato inválido: falta el array de preguntas');
+    }
+
+    return questions.map((q, i) => {
+      if (!q.question_text && !q.pregunta) {
+        throw new Error(`Pregunta ${i + 1} no tiene texto`);
       }
 
-      return questions.map((q, i) => {
-        if (!q.question_text && !q.pregunta) {
-          throw new Error(`Pregunta ${i + 1} no tiene texto`);
-        }
-
-        return {
-          id: q.id || `q${i}`,
-          text: q.question_text || q.pregunta,
-          options: q.options || q.opciones || [],
-          correctAnswer: q.correct_answer ?? q.respuesta_correcta,
-          explanation: q.explanation || q.explicacion
-        };
-      });
-    } catch (error) {
-      console.error('Error en parseJSONQuestions (Estudiante):', error);
-      throw error;
-    }
-  };
+      return {
+        id: q.id || `q${i}`,
+        text: q.question_text || q.pregunta,
+        options: q.options || q.opciones || [],
+        correctAnswer: q.correct_answer ?? q.respuesta_correcta,
+        explanation: q.explanation || q.explicacion
+      };
+    });
+  } catch (error) {
+    console.error('Error en parseJSONQuestions (Estudiante):', error);
+    throw error; // Propaga el error para mostrarlo en la UI
+  }
+};
 
   const handleVideoPlay = async (video) => {
     try {
@@ -195,97 +201,134 @@ export default function CursoEstudiante() {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       stream.getTracks().forEach(track => track.stop());
       
-      router.push(`/dashboard/dashboardEstudiante/talleresEstudiante/realizacionTaller/${taller.id}`);
+      router.push(`/dashboard/estudiante/talleres/${taller.id}`);
     } catch (err) {
       alert('Debes permitir el acceso a la cámara para realizar este taller');
       console.error('Error al acceder a la cámara:', err);
     }
   };
 
-  const handlePruebaStart = async (prueba) => {
-    if (!prueba) {
-      console.error('Prueba es undefined/null');
-      alert('Error: No se ha seleccionado ninguna prueba');
-      return;
-    }
-
-    if (!prueba?.id) {
-      console.error('Prueba no valida:', prueba);
-      alert('Error: La prueba seleccionada no es valida');
-      return;
-    }
-
-    if (typeof prueba !== 'object' || Array.isArray(prueba)) {
-      console.error('Prueba no es un objeto válido:', prueba);
-      alert('Error: Datos de prueba inválidos');
-      return;
-    }
-
+  // Función para obtener detalles básicos de la entrega
+  const fetchEntregaDetalles = async (tallerId) => {
     try {
-      let jsonContent = prueba.json_content;
-      const hasJsonFile = prueba.archivo_json;
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `http://localhost:8000/api/talleres/${tallerId}/entrega/`,
+        { headers: { 'Authorization': `Token ${token}` } }
+      );
       
-      if (!jsonContent && !hasJsonFile) {
-        throw new Error('La prueba no tiene contenido asociado');
-      }
-
-      if (!jsonContent && hasJsonFile) {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          router.push('/login');
-          return;
-        }
-
-        const jsonUrl = prueba.archivo_json.startsWith('http') 
-          ? prueba.archivo_json 
-          : `http://localhost:8000${prueba.archivo_json}`;
-        
-        const response = await fetch(jsonUrl, {
-          headers: { 'Authorization': `Token ${token}` }
+      if (response.ok) {
+        const data = await response.json();
+        setEntregaDetalles({
+          titulo: data.titulo,
+          descripcion: data.descripcion,
+          archivoDocente: data.archivo ? (data.archivo.startsWith('http') ? data.archivo : `http://localhost:8000${data.archivo}`) : null,  // Archivo original del docente
+          respuestaEstudiante: data.respuesta || "No se envió texto"
         });
-        
-        if (!response.ok) {
-          throw new Error(`Error ${response.status} al cargar el JSON`);
-        }
-        
-        jsonContent = await response.json();
+        setShowEntregaModal(true);
+      } else {
+        console.error('Error al obtener entrega:', response.status);
+        alert('No se pudo cargar la entrega del taller.');
       }
-
-      if (!jsonContent || typeof jsonContent !== 'object') {
-        throw new Error('El contenido de la prueba no es válido');
-      }
-
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        stream.getTracks().forEach(track => track.stop());
-      } catch (cameraError) {
-        throw new Error('Debes permitir el acceso a la cámara para realizar esta prueba');
-      }
-
-      const pruebaData = {
-        id: prueba.id,
-        titulo: prueba.titulo || 'Prueba sin título',
-        descripcion: prueba.descripcion || '',
-        tiempo_limite: prueba.tiempo_limite || 30,
-        fecha_entrega: prueba.fecha_entrega || null,
-        preguntas: parseJSONQuestions(jsonContent)
-      };
-
-      const queryParams = new URLSearchParams();
-      queryParams.append('pruebaData', JSON.stringify(pruebaData));
-      
-      router.push(`/dashboard/estudiante/pruebas/${prueba.id}`);
-
-    } catch (error) {
-      console.error('Error en handlePruebaStart:', {
-        error: error.message,
-        prueba: prueba,
-        stack: error.stack
-      });
-      
-      alert(`Error al iniciar la prueba: ${error.message}`);
+    } catch (err) {
+      console.error("Error al cargar detalles:", err);
+      alert('Error al cargar detalles de la entrega.');
     }
   };
+
+  const handlePruebaStart = async (prueba) => {
+  // Validación exhaustiva
+  if (!prueba) {
+    console.error('Prueba es undefined/null');
+    alert('Error: No se ha seleccionado ninguna prueba');
+    return;
+  }
+
+  if (!prueba?.id){
+    console.error('Prueba no valida:',prueba);
+    alert ('Error: La prueba seleccionad no es valida');
+    return;
+  }
+
+  if (typeof prueba !== 'object' || Array.isArray(prueba)) {
+    console.error('Prueba no es un objeto válido:', prueba);
+    alert('Error: Datos de prueba inválidos');
+    return;
+  }
+
+  
+
+  try {
+    // Verificar contenido JSON
+    let jsonContent = prueba.json_content;
+    const hasJsonFile = prueba.archivo_json;
+    
+    if (!jsonContent && !hasJsonFile) {
+      throw new Error('La prueba no tiene contenido asociado');
+    }
+
+    // Cargar JSON desde archivo si es necesario
+    if (!jsonContent && hasJsonFile) {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        router.push('/login');
+        return;
+      }
+
+      const jsonUrl = prueba.archivo_json.startsWith('http') 
+        ? prueba.archivo_json 
+        : `http://localhost:8000${prueba.archivo_json}`;
+      
+      const response = await fetch(jsonUrl, {
+        headers: { 'Authorization': `Token ${token}` }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error ${response.status} al cargar el JSON`);
+      }
+      
+      jsonContent = await response.json();
+    }
+
+    // Validar estructura del JSON
+    if (!jsonContent || typeof jsonContent !== 'object') {
+      throw new Error('El contenido de la prueba no es válido');
+    }
+
+    // Verificar acceso a cámara
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      stream.getTracks().forEach(track => track.stop());
+    } catch (cameraError) {
+      throw new Error('Debes permitir el acceso a la cámara para realizar esta prueba');
+    }
+
+    // Preparar datos para la redirección
+    const pruebaData = {
+      id: prueba.id,
+      titulo: prueba.titulo || 'Prueba sin título',
+      descripcion: prueba.descripcion || '',
+      tiempo_limite: prueba.tiempo_limite || 30,
+      fecha_entrega: prueba.fecha_entrega || null,
+      preguntas: parseJSONQuestions(jsonContent)
+    };
+
+    // Redirección con validación de parámetros
+    const queryParams = new URLSearchParams();
+    queryParams.append('pruebaData', JSON.stringify(pruebaData));
+    
+    router.push(`/dashboard/estudiante/pruebas/${prueba.id}`);
+
+  } catch (error) {
+    console.error('Error en handlePruebaStart:', {
+      error: error.message,
+      prueba: prueba,
+      stack: error.stack
+    });
+    
+    alert(`Error al iniciar la prueba: ${error.message}`);
+  }
+};
 
   const handleStartMonitoring = () => {
     setIsMonitoring(true);
@@ -301,34 +344,9 @@ export default function CursoEstudiante() {
     }
   };
 
-   const handleAttentionResults = (results) => {
-    if (results.length > 0 && activeVideo) {
-      const avgScore = results.reduce((sum, r) => sum + (r.attention_score || 0), 0) / results.length;
-      
-      setAttentionResults(prev => [...prev, {
-        videoId: activeVideo.id,
-        percentage: avgScore,
-        details: results,
-        date: new Date().toISOString()
-      }]);
-
-      // Actualizar lista de videos completados
-      if (!completedActivities.videos.includes(activeVideo.id)) {
-        setCompletedActivities(prev => ({
-          ...prev,
-          videos: [...prev.videos, activeVideo.id]
-        }));
-        
-        // Recalcular porcentaje de completado
-        const newPercentage = ((completedActivities.videos.length + 1 + 
-                              completedActivities.talleres.length + 
-                              completedActivities.pruebas.length) / 
-                             (videos.length + talleres.length + pruebas.length)) * 100;
-        
-        setCompletionPercentage(newPercentage);
-      }
-    }
-  };;
+  const saveAttentionResults = (results) => {
+    setAttentionResults(prev => [...prev, results]);
+  };
 
   const ResourceSection = ({ title, resources, resourceType }) => {
     const isCompleted = (resourceId) => {
@@ -348,6 +366,7 @@ export default function CursoEstudiante() {
         {resources.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {resources.map(resource => (
+              
               <div 
                 key={`${resourceType}-${resource.id}`}
                 className={`border p-4 rounded-lg transition-all ${
@@ -396,24 +415,36 @@ export default function CursoEstudiante() {
                   )}
                   
                   {resourceType === 'taller' && (
-                    <button
-                      onClick={() => handleTallerStart(resource)}
-                      className={`inline-flex items-center px-3 py-2 rounded transition-colors ${
-                        isCompleted(resource.id) ? 'bg-green-500 text-white hover:bg-green-600' : 
-                        'bg-yellow-500 text-white hover:bg-yellow-600'
-                      }`}
-                    >
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
-                      </svg>
-                      {isCompleted(resource.id) ? 'Ver Entrega' : 'Realizar Taller'}
-                    </button>
+                    <>
+                      {!isCompleted(resource.id) ? (
+                        <button
+                          onClick={() => handleTallerStart(resource)}
+                          className={`inline-flex items-center px-3 py-2 rounded transition-colors ${
+                            isCompleted(resource.id) ? 'bg-green-500 text-white hover:bg-green-600' : 
+                            'bg-yellow-500 text-white hover:bg-yellow-600'
+                          }`}
+                        >
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
+                          </svg>
+                          Realizar Taller
+                        </button>
+                      ) : (
+                        // Botón "Ver Entrega" (solo para talleres completados)
+                        <button
+                          onClick={() => fetchEntregaDetalles(resource.id)}
+                          className="inline-flex items-center px-3 py-2 rounded bg-green-100 text-green-800 hover:bg-green-200"
+                        >
+                          📄 Ver Entrega
+                        </button>
+                      )}
+                    </>
                   )}
 
                   {resourceType === 'prueba' && (
                     isCompleted(resource.id) ? (
                       <button
-                        onClick={() => router.push(`/dashboard/estudiante/curso/${id}/resultadosEstudiante?prueba=${resource.id}`)}
+                        onClick={() => router.push(`/dashboard/estudiante/curso/${id}/simulacion?prueba=${resource.id}`)}
                         className="inline-flex items-center px-3 py-2 rounded transition-colors bg-green-500 text-white hover:bg-green-600"
                       >
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -581,10 +612,10 @@ export default function CursoEstudiante() {
               )}
               
               <CameraComponent 
-                active={isMonitoring}
+                onStartMonitoring={handleStartMonitoring}
+                onStopMonitoring={handleStopMonitoring}
                 videoId={activeVideo?.id}
-                onStartMonitoring={() => setIsMonitoring(true)}
-                onStopMonitoring={handleAttentionResults}
+                active={isMonitoring}
               />
               
               <div className="mt-3 p-3 bg-blue-50 rounded">
@@ -661,6 +692,54 @@ export default function CursoEstudiante() {
           </div>
         </div>
       </main>
+
+      {/* Modal de entrega */}
+      {showEntregaModal && entregaDetalles && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full">
+            <h3 className="text-xl font-bold mb-2">{entregaDetalles.titulo}</h3>
+            <p className="text-gray-600 mb-4">{entregaDetalles.descripcion}</p>
+
+            {/* Respuesta del estudiante */}
+            <div className="mb-6">
+              <h4 className="font-semibold mb-2">Tu respuesta:</h4>
+              <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                <p className="whitespace-pre-line">
+                  {entregaDetalles.respuestaEstudiante}
+                </p>
+              </div>
+            </div>
+
+            {/* Archivo del docente (solo si existe) */}
+            {entregaDetalles.archivoDocente && (
+              <div className="mb-4">
+                <h4 className="font-semibold mb-2">Documento del taller:</h4>
+                <a 
+                  href={entregaDetalles.archivoDocente} 
+                  download
+                  className="inline-flex items-center text-blue-600 hover:underline"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"/>
+                  </svg>
+                  Descargar archivo original
+                </a>
+              </div>
+            )}
+
+            <button 
+              onClick={() => {
+                setShowEntregaModal(false);
+                setEntregaDetalles(null);
+              }}
+              className="mt-4 w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
+
       <Footer />
     </div>
   );

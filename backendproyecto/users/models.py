@@ -61,6 +61,7 @@ class TallerEnviado(models.Model):
     estudiante = models.ForeignKey(User, on_delete=models.CASCADE)
     taller = models.ForeignKey(Taller, on_delete=models.CASCADE)
     archivo = models.FileField(upload_to='talleres_enviados/')
+    respuesta=models.FileField(blank=True, null=True)
     fecha_envio = models.DateTimeField(auto_now_add=True)
     calificacion = models.FloatField(null=True, blank=True)
     comentarios = models.TextField(blank=True)

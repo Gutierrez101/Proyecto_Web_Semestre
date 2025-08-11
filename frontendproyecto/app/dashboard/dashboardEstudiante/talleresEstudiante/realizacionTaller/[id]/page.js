@@ -22,6 +22,7 @@ export default function RealizacionTallerPage() {
 
   useEffect(() => {
     const fetchTaller = async () => {
+      
       try {
         const token = localStorage.getItem('token');
         if (!token) {
@@ -90,6 +91,19 @@ export default function RealizacionTallerPage() {
       if (!token) {
         router.push('/login');
         return;
+      }
+
+      const cursoId=taller.curso
+      const progressResponse=await fetch(
+        'http://localhost:8000/api/cursos/${cursoId}/completion/',
+        {
+          headers:{
+            'Authorization':'Token ${token}',
+          }
+        }
+      );
+      if(progressResponse.ok){
+        const progressData=await progressResponse.json();
       }
 
       const response = await fetch(`http://localhost:8000/api/talleres/${id}/submit/`, {

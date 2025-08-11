@@ -32,6 +32,7 @@ from users.api_views import (
     PruebaView,
     TallerDetailView,
     SubmitTallerView,
+    TallerEntregaDetailView,
     CursoCompletionView,
     ResultadoPruebaView,
     # Modulo para verificar la atencion del video
@@ -59,7 +60,9 @@ urlpatterns = [
     path('api/cursos/<int:curso_id>/talleres/', TallerView.as_view(), name='talleres-curso'),
     path('api/talleres/<int:taller_id>/', TallerDetailView.as_view(), name='taller-detail'),
     path('api/talleres/<int:taller_id>/submit/', SubmitTallerView.as_view(), name='submit-taller'),
-    
+    path('api/talleres/<int:taller_id>/entrega/', TallerEntregaDetailView.as_view(), name='taller-entrega-detail'),
+
+
     #Apis de evaluacion del docente
     path('api/pruebas/', PruebaListView.as_view(), name='pruebas-list'),
     path('api/cursos/<int:curso_id>/pruebas/', PruebaView.as_view(), name='pruebas-curso'),
