@@ -201,7 +201,7 @@ export default function CursoEstudiante() {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       stream.getTracks().forEach(track => track.stop());
       
-      router.push(`/dashboard/estudiante/talleres/${taller.id}`);
+      router.push(`/dashboard/dashboardEstudiante/talleresEstudiante/realizacionTaller/${taller.id}`);
     } catch (err) {
       alert('Debes permitir el acceso a la cámara para realizar este taller');
       console.error('Error al acceder a la cámara:', err);
