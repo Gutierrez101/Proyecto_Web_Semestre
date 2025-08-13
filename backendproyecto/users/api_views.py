@@ -1572,3 +1572,79 @@ class CursoCompletionView(APIView):
             }
         })
 
+
+
+# Añadir una nueva vista para obtener las notas del estudiante
+class NotasEstudianteView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            # Obtener nombre del usuario
+            nombre = (
+                f"{request.user.first_name} {request.user.last_name}"
+                if request.user.first_name and request.user.last_name
+                else request.user.username
+            )
+
+            # Obtener pruebas y talleres
+            resultados_pruebas = ResultadoPrueba.objects.filter(
+                estudiante=request.user,
+                evaluacion_ia__isnull=False
+            ).select_related('prueba')
+
+            talleres = TallerEnviado.objects.filter(
+                estudiante=request.user
+            ).select_related('taller')
+
+            # Procesar notas de pruebas
+            notas_pruebas = []
+            for resultado in resultados_pruebas:
+                evaluacion = resultado.evaluacion_ia or {}
+                if evaluacion:
+                    notas_pruebas.append({
+                        "tipo": "prueba",
+                        "actividad": f"Prueba: {resultado.prueba.titulo}",
+                        "nota": float(evaluacion.get('puntaje', 0)),
+                        "maximo": float(evaluacion.get('total', 10)),
+                        "fecha": resultado.fecha_fin.strftime("%d/%m/%Y") if resultado.fecha_fin else "Sin fecha",
+                        "porcentaje": round((float(evaluacion.get('puntaje', 0)) / float(evaluacion.get('total', 10)) * 100, 1))
+                    })
+
+            # Procesar notas de talleres (si existen)
+            notas_talleres = []
+            for taller in talleres:
+                if taller.calificacion is not None:
+                    notas_talleres.append({
+                        "tipo": "taller",
+                        "actividad": f"Taller: {taller.taller.titulo}",
+                        "nota": float(taller.calificacion),
+                        "maximo": 10.0,
+                        "fecha": taller.fecha_envio.strftime("%d/%m/%Y") if taller.fecha_envio else "Sin fecha",
+                        "porcentaje": round((float(taller.calificacion) / 10.0) * 100, 1)
+                    })
+
+            # Calcular promedio
+            todas_notas = notas_pruebas + notas_talleres
+            promedio = round(
+                sum(n['porcentaje'] for n in todas_notas) / len(todas_notas), 
+                1
+            ) if todas_notas else 0.0
+
+            return Response({
+                "nombre": nombre,
+                "notas": todas_notas,
+                "promedio": promedio,
+                "resumen": {
+                    "total_actividades": len(todas_notas),
+                    "pruebas": len(notas_pruebas),
+                    "talleres": len(notas_talleres)
+                }
+             }, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Error en NotasEstudianteView: {str(e)}")
+            return Response({
+                "error": "Error al obtener notas",
+                "detalle": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

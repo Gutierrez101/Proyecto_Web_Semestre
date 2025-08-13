@@ -35,6 +35,7 @@ from users.api_views import (
     TallerEntregaDetailView,
     CursoCompletionView,
     ResultadoPruebaView,
+    NotasEstudianteView,
     # Modulo para verificar la atencion del video
     verify_attention, 
     VideoStreamView,
@@ -82,6 +83,7 @@ urlpatterns = [
     path('api/cursos/videos/<int:video_id>/stream/', VideoStreamView.as_view(), name='video_stream'),
     path('api/cursos/videos/<int:video_id>/save-results/',SaveAttentionResults.as_view(),name='save-attention-results'),
     path('api/cursos/videos/<int:video_id>/process_batch/', process_attention_batch, name='process_batch'),
+    path('api/estudiante/notas/',NotasEstudianteView.as_view(),name='notas-estudiante')
 ]
 
 # para los archivos multimedia

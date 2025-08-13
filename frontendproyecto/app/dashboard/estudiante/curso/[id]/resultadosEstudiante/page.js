@@ -21,7 +21,7 @@ export default function ResultadosEstudiante() {
           router.push('/login');
           return;
         }
-        // Cambia el endpoint para usar el nuevo de resultados evaluados por OpenAI
+        // Endpoint para usar el nuevo de resultados evaluados por OpenAI
         const res = await fetch(`http://localhost:8000/api/resultados-estudiante/?prueba=${pruebaId}`, {
           headers: { 'Authorization': `Token ${token}` }
         });
