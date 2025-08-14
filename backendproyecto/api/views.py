@@ -1,5 +1,6 @@
 import os
 import json
+from django.utils import timezone
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -66,6 +67,16 @@ class ResultadosEstudianteIA(APIView):
 
         resultado_ia = evaluar_prueba_openai(banco_preguntas, api_key)
         if resultado_ia:
+            # Guardar los resultados en la base de datos
+            resultado.evaluacion_ia = {
+                'puntaje': resultado_ia.get('puntaje', 0),
+                'total': resultado_ia.get('total', len(banco_preguntas)),
+                'fecha': timezone.now().isoformat(),
+                'detalle': resultado_ia.get('detalle', []),
+                'porcentaje': (resultado_ia.get('puntaje', 0) / resultado_ia.get('total', len(banco_preguntas))) * 100 if resultado_ia.get('total', len(banco_preguntas)) > 0 else 0
+            }
+            resultado.save()
+            
             return Response(resultado_ia)
         else:
             return Response({"error": "No se pudo obtener el resultado de la IA"}, status=400)

@@ -8,38 +8,10 @@ export default function CameraComponent({ onStartMonitoring, onStopMonitoring, v
   const [monitoreando, setMonitoreando] = useState(false);
   const [attentionData, setAttentionData] = useState([]);
   const [intervalId, setIntervalId] = useState(null);
+  const [sessionId, setSessionId] = useState(null);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const activarCamara = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { 
-            facingMode: 'user', 
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          } 
-        });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play();
-          setCamaraActiva(true);
-        }
-      } catch (err) {
-        console.error("Error al acceder a la cámara:", err);
-        alert("No se pudo acceder a la cámara. Por favor, asegúrate de haber otorgado los permisos necesarios.");
-      }
-    };
-
-    activarCamara();
-
-    return () => {
-      if (videoRef.current?.srcObject) {
-        videoRef.current.srcObject.getTracks().forEach(track => track.stop());
-      }
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, []);
-
+  // 1. Función para capturar el frame
   const captureFrame = async () => {
     if (!videoRef.current || !canvasRef.current) return null;
     
@@ -57,48 +29,182 @@ export default function CameraComponent({ onStartMonitoring, onStopMonitoring, v
     });
   };
 
-  const sendFrameToBackend = async () => {
-    try {
-      const frameBlob = await captureFrame();
-      if (!frameBlob) return;
-
-      const token = localStorage.getItem('token');
-      if (!token) return;
-
-      const formData = new FormData();
-      formData.append('frame', frameBlob, 'frame.jpg');
-
-      // Simulamos una respuesta del backend para el ejemplo
-      const mockResponse = {
-        is_paying_attention: Math.random() > 0.3, // 70% de probabilidad de estar atento
-        eye_aspect_ratio: 0.3 + Math.random() * 0.3,
-        head_pose: {
-          pitch: (Math.random() * 20) - 10,
-          yaw: (Math.random() * 20) - 10,
-          roll: (Math.random() * 10) - 5
-        }
-      };
-
-      setAttentionData(prev => [...prev, {
-        timestamp: new Date().toISOString(),
-        data: mockResponse
-      }]);
-
-      return mockResponse;
-    } catch (error) {
-      console.error('Error al enviar frame:', error);
-      return null;
+  // 2. Función para obtener el token de autenticación
+  const getAuthToken = () => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('token');
     }
+    return null;
   };
 
-  const comenzarMonitoreo = () => {
-    setMonitoreando(true);
-    // Enviar frames cada 5 segundos (ajustable)
-    const id = setInterval(sendFrameToBackend, 5000);
-    setIntervalId(id);
+  // 3. Función para crear sesión de atención
+  const crearSesionAtencion = async () => {
+  try {
+    const token = getAuthToken();
+    if (!token) {
+      throw new Error('No se encontró token de autenticación');
+    }
+
+    const frameBlob = await captureFrame();
+    if (!frameBlob) {
+      throw new Error('No se pudo capturar el frame inicial');
+    }
+
+    const formData = new FormData();
+    formData.append('frame', frameBlob, 'frame.jpg');
+
+    const response = await fetch(`http://localhost:8000/api/cursos/videos/${videoId}/verify/`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Token ${token}`,
+      },
+      body: formData
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Error al crear sesión');
+    }
+
+    const data = await response.json();
+    setSessionId(data.session_id); // Set sessionId immediately after response
+    return data;
+  } catch (error) {
+    console.error('Error en crearSesionAtencion:', error);
+    setError(error.message);
+    return null;
+  }
+};
+
+  // 4. Función para procesar batch de atención
+  const procesarBatchAtencion = async (frames) => {
+  try {
+    const token = getAuthToken();
+    const currentSessionId = sessionId;
     
-    if (onStartMonitoring) {
-      onStartMonitoring(videoRef.current);
+    if (!token || !currentSessionId) {
+      throw new Error('Faltan credenciales de autenticación');
+    }
+
+    const response = await fetch(`http://localhost:8000/api/cursos/videos/${videoId}/process_batch/`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Token ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        session_id: currentSessionId,
+        frames: frames
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Error en la respuesta del servidor');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error en procesarBatchAtencion:', error);
+    setError(error.message);
+    return null;
+  }
+};
+
+  // 5. Función para analizar frame
+  const analizarFrame = async () => {
+  if (!sessionId) {
+    console.warn('Session ID not available yet');
+    return null;
+  }
+
+  try {
+    const frameBlob = await captureFrame();
+    if (!frameBlob) return null;
+
+    const arrayBuffer = await frameBlob.arrayBuffer();
+    const frameData = Array.from(new Uint8Array(arrayBuffer))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+
+    const result = await procesarBatchAtencion([{
+      frame_data: frameData,
+      timestamp: new Date().toISOString(),
+      width: canvasRef.current.width,
+      height: canvasRef.current.height
+    }]);
+
+    if (result) {
+      const newData = {
+        timestamp: new Date().toISOString(),
+        attention_score: result.average_attention,
+        analysis: result
+      };
+      setAttentionData(prev => [...prev, newData]);
+      return newData;
+    }
+  } catch (error) {
+    console.error('Error en analizarFrame:', error);
+    setError(error.message);
+  }
+  return null;
+};
+
+  // Resto del componente...
+  useEffect(() => {
+    const activarCamara = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            facingMode: 'user', 
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          } 
+        });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play();
+          setCamaraActiva(true);
+        }
+      } catch (err) {
+        console.error("Error al acceder a la cámara:", err);
+        setError("No se pudo acceder a la cámara. Por favor, asegúrate de haber otorgado los permisos necesarios.");
+      }
+    };
+
+    activarCamara();
+
+    return () => {
+      if (videoRef.current?.srcObject) {
+        videoRef.current.srcObject.getTracks().forEach(track => track.stop());
+      }
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, []);
+
+  const comenzarMonitoreo = async () => {
+    setError(null);
+    try {
+      const data = await crearSesionAtencion();
+      if (!data?.session_id) {
+        throw new Error('No se pudo crear sesión de atención');
+      }
+      
+      setSessionId(data.session_id);
+      setMonitoreando(true);
+      
+      // Procesar primer frame inmediatamente
+      await analizarFrame();
+      
+      // Configurar intervalo para procesar frames periódicamente
+      const id = setInterval(analizarFrame, 5000);
+      setIntervalId(id);
+      
+      if (onStartMonitoring) {
+        onStartMonitoring();
+      }
+    } catch (error) {
+      console.error('Error al comenzar monitoreo:', error);
+      setError(error.message);
     }
   };
 
@@ -114,6 +220,12 @@ export default function CameraComponent({ onStartMonitoring, onStopMonitoring, v
 
   return (
     <div className="bg-white p-4 rounded-lg shadow-md">
+      {error && (
+        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
+          Error: {error}
+        </div>
+      )}
+      
       <div className="flex flex-col items-center">
         <video 
           ref={videoRef} 
@@ -147,7 +259,6 @@ export default function CameraComponent({ onStartMonitoring, onStopMonitoring, v
         )}
       </div>
       
-      {/* Mostrar datos de atención recolectados */}
       {attentionData.length > 0 && (
         <div className="mt-4 p-3 bg-gray-50 rounded">
           <h4 className="font-medium mb-2">Datos de atención recientes:</h4>
@@ -155,11 +266,9 @@ export default function CameraComponent({ onStartMonitoring, onStopMonitoring, v
             {attentionData.slice(-3).map((item, index) => (
               <div key={index} className="mb-1 pb-1 border-b border-gray-200">
                 <p>Tiempo: {new Date(item.timestamp).toLocaleTimeString()}</p>
-                <p>Estado: {item.data.is_paying_attention ? (
-                  <span className="text-green-600">Atento</span>
-                ) : (
-                  <span className="text-red-600">Distraído</span>
-                )}</p>
+                <p>Atención: <span className={item.attention_score > 70 ? 'text-green-600' : item.attention_score > 40 ? 'text-yellow-600' : 'text-red-600'}>
+                  {item.attention_score}%
+                </span></p>
               </div>
             ))}
           </div>

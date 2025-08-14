@@ -16,7 +16,6 @@ export default function NotasEstudiante() {
   useEffect(() => {
     const fetchNotas = async () => {
       try {
-        // Obtener el token de autenticación del localStorage
         const token = localStorage.getItem('token');
         
         if (!token) {
@@ -62,6 +61,7 @@ export default function NotasEstudiante() {
 
     fetchNotas();
   }, []);
+
 
   if (loading) {
     return (

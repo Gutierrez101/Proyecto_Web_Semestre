@@ -1,6 +1,8 @@
 from django.conf import settings
 from django.db import models
 from django.urls import reverse
+import uuid
+from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import AbstractUser
 
@@ -126,19 +128,38 @@ class ResultadoPrueba(models.Model):
 
 
 
-#modulo para la atencion del video
+
+
+#token del video
+
+
+
+def default_token():
+    return str(uuid.uuid4())
+
+def default_expires_at():
+    return timezone.now() + timezone.timedelta(minutes=30)
+
+
 class VideoAccessToken(models.Model):
-    token = models.OneToOneField(
-        'authtoken.Token',
+    token_key = models.CharField(
+        max_length=40,
+        unique=True,
+        default=default_token
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='video_access'
+        related_name='video_access_tokens',
+        null=True  # Temporalmente nullable para la migración
     )
     video = models.ForeignKey(
-        Video,  # Cambiado de 'Curso' a 'Video' para que sea más específico
-        on_delete=models.CASCADE
+        'Video',
+        on_delete=models.CASCADE,
+        related_name='access_tokens'
     )
     created_at = models.DateTimeField(auto_now_add=True)
-    expires_at = models.DateTimeField()
+    expires_at = models.DateTimeField(default=timezone.now)
     is_used = models.BooleanField(default=False)
 
     class Meta:
@@ -146,7 +167,7 @@ class VideoAccessToken(models.Model):
         verbose_name_plural = 'Tokens de acceso a videos'
 
     def __str__(self):
-        return f"Token para {self.video.titulo} (Expira: {self.expires_at})"
+        return f"Token para {self.video.titulo} (Usuario: {self.user.username if self.user else 'None'})"
 
 
 class AttentionResult(models.Model):

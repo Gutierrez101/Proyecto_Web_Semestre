@@ -232,41 +232,47 @@ def verify_attention(request, video_id):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Crear sesión de atención
-        session_uuid, session_id = create_attention_session(
-            str(request.user.id),
-            str(video_id))
-        
-        # Analizar el frame
-        analysis = analyze_frame_with_weights(frame)
-        attention_score = calculate_weighted_score(analysis)
-        
-        # Guardar en MongoDB
-        add_frames_batch(session_id, [{
-            'timestamp': datetime.utcnow().isoformat(),
-            'analysis': analysis,
-            'attention_score': attention_score,
-        }])
+        try:
+            # Crear sesión de atención
+            session_uuid, session_id = create_attention_session(
+                str(request.user.id),
+                str(video_id))
+            
+            # Analizar el frame
+            analysis = analyze_frame_with_weights(frame)
+            attention_score = calculate_weighted_score(analysis)
+            
+            # Guardar en MongoDB
+            add_frames_batch(session_id, [{
+                'timestamp': datetime.utcnow().isoformat(),
+                'analysis': analysis,
+                'attention_score': attention_score,
+            }])
 
-        # Verificar atención
-        if attention_score < 50:
+            # Generar token de acceso al video
+            try:
+                token = generate_video_token(request.user, video)
+            except Exception as e:
+                logger.error(f"Error generando token: {str(e)}")
+                return Response(
+                    {'error': 'Error interno al generar token de acceso'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+            
             return Response({
-                'error': 'Atención insuficiente',
-                'details': analysis,
+                'status': 'success',
+                'token': token,
+                'video_url': f'/api/cursos/videos/{video_id}/stream/',
                 'session_id': session_id,
                 'attention_score': attention_score
-            }, status=status.HTTP_403_FORBIDDEN)
-            
-        # Generar token de acceso al video
-        token = generate_video_token(request.user, video)
-        
-        return Response({
-            'status': 'success',
-            'token': token,
-            'video_url': f'/api/cursos/videos/{video_id}/stream/',
-            'session_id': session_id,
-            'attention_score': attention_score
-        })
+            })
+
+        except Exception as e:
+            logger.error(f"Error en procesamiento de atención: {str(e)}", exc_info=True)
+            return Response(
+                {'error': 'Error en el análisis de atención'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     except Exception as e:
         logger.error(f"Error en verify_attention: {str(e)}", exc_info=True)
@@ -275,7 +281,7 @@ def verify_attention(request, video_id):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
-#Fnciones para vision por computadora
+#Funciones para vision por computadora
 
 @api_view(['POST'])
 def process_attention_batch(request, video_id):
@@ -631,19 +637,19 @@ def estimate_head_pose_mediapipe(landmarks, frame_shape):
 
 
 def generate_video_token(user, video):
-    """Genera un token temporal para acceso al video sin afectar el token principal"""
+    """Genera un token temporal para acceso al video"""
     try:
-        # Eliminar tokens de video antiguos
+        # Eliminar tokens de video antiguos para este usuario y video
         VideoAccessToken.objects.filter(
             user=user,
             video=video
         ).delete()
         
-        # Crear un token temporal sin usar el modelo Token
+        # Crear un token temporal
         token_key = f'VIDEO_{video.id}_{uuid.uuid4().hex}'[:40]
         
         # Crear registro de acceso
-        VideoAccessToken.objects.create(
+        token = VideoAccessToken.objects.create(
             token_key=token_key,
             user=user,
             video=video,
@@ -653,7 +659,7 @@ def generate_video_token(user, video):
         return token_key
         
     except Exception as e:
-        logger.error(f"Error generando token de video: {str(e)}")
+        logger.error(f"Error generando token de video: {str(e)}", exc_info=True)
         raise
 
 
@@ -1603,26 +1609,33 @@ class NotasEstudianteView(APIView):
             for resultado in resultados_pruebas:
                 evaluacion = resultado.evaluacion_ia or {}
                 if evaluacion:
+                    puntaje = float(evaluacion.get('puntaje', 0))
+                    total = float(evaluacion.get('total', 10))
+                    porcentaje = (puntaje / total) * 100 if total > 0 else 0
+                    
                     notas_pruebas.append({
                         "tipo": "prueba",
                         "actividad": f"Prueba: {resultado.prueba.titulo}",
-                        "nota": float(evaluacion.get('puntaje', 0)),
-                        "maximo": float(evaluacion.get('total', 10)),
+                        "nota": puntaje,
+                        "maximo": total,
                         "fecha": resultado.fecha_fin.strftime("%d/%m/%Y") if resultado.fecha_fin else "Sin fecha",
-                        "porcentaje": round((float(evaluacion.get('puntaje', 0)) / float(evaluacion.get('total', 10)) * 100, 1))
+                        "porcentaje": round(porcentaje, 1)  # Corregido: redondeamos el porcentaje ya calculado
                     })
 
             # Procesar notas de talleres (si existen)
             notas_talleres = []
             for taller in talleres:
                 if taller.calificacion is not None:
+                    calificacion = float(taller.calificacion)
+                    porcentaje = (calificacion / 10.0) * 100
+                    
                     notas_talleres.append({
                         "tipo": "taller",
                         "actividad": f"Taller: {taller.taller.titulo}",
-                        "nota": float(taller.calificacion),
+                        "nota": calificacion,
                         "maximo": 10.0,
                         "fecha": taller.fecha_envio.strftime("%d/%m/%Y") if taller.fecha_envio else "Sin fecha",
-                        "porcentaje": round((float(taller.calificacion) / 10.0) * 100, 1)
+                        "porcentaje": round(porcentaje, 1)  # Corregido: redondeamos el porcentaje ya calculado
                     })
 
             # Calcular promedio
