@@ -1,0 +1,11 @@
+Django>=5.1.6
+django-cors-headers
+djangorestframework
+opencv-python
+numpy
+mediapipe
+pymongo[srv]
+mongoengine 
+djongo 
+django-environ
+requests
