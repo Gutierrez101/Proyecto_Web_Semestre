@@ -9,3 +9,4 @@ mongoengine
 djongo 
 django-environ
 requests
+dj_database_url
