@@ -9,5 +9,6 @@ mongoengine
 djongo 
 django-environ
 requests
+gunicorn
 python-decouple
 dj_database_url
