@@ -9,4 +9,5 @@ mongoengine
 djongo 
 django-environ
 requests
+decouple
 dj_database_url
