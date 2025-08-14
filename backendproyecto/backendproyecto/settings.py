@@ -36,14 +36,14 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'rest_framework.authtoken',
-    'users',  # Asegúrate de que tu aplicación de usuarios esté registrada aquí
+    'backendproyecto.users',  # Asegúrate de que tu aplicación de usuarios esté registrada aquí
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'api',  # Nueva aplicación añadida
+    'backendproyecto.api',  # Nueva aplicación añadida
 ]
 
 AUTH_USER_MODEL = 'users.User'
