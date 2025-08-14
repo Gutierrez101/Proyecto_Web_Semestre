@@ -1,2 +1,2 @@
-web: gunicorn backendproyecto.backendproyecto.wsgi
+web: gunicorn backendproyecto.backendproyecto.wsgi --log-file -
 
