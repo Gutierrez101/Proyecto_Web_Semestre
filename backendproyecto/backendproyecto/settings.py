@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-ldrgkd@5f^l6-&5sy+!t=ihb#!0ilb@6nk#4$j=izf2qzr!*+t
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["localhost", "mindflow-back.herokuapp.com"]
+ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 
 
 # Application definition

@@ -1,0 +1,54 @@
+{
+  "questions": [
+    {
+      "texto": "¿Qué significa 'IDE' en programación?",
+      "options": ["Integrated Development Environment", "Internet Development Engine", "Internal Data Execution"],
+      "correct_answer": "Integrated Development Environment"
+    },
+    {
+      "texto": "¿Cuál de los siguientes es un lenguaje de programación?",
+      "options": ["HTML", "Python", "CSS"],
+      "correct_answer": "Python"
+    },
+    {
+      "texto": "¿Para qué sirve un bucle 'for'?",
+      "options": ["Repetir un bloque de código varias veces", "Condicionar la ejecución de código", "Almacenar datos en memoria"],
+      "correct_answer": "Repetir un bloque de código varias veces"
+    },
+    {
+      "texto": "¿Qué es una variable?",
+      "options": ["Un tipo de bucle", "Un espacio en memoria para almacenar datos", "Una función que se ejecuta automáticamente"],
+      "correct_answer": "Un espacio en memoria para almacenar datos"
+    },
+    {
+      "texto": "¿Cuál es la función de 'print()' en Python?",
+      "options": ["Mostrar información en pantalla", "Leer archivos de texto", "Almacenar datos en una base de datos"],
+      "correct_answer": "Mostrar información en pantalla"
+    },
+    {
+      "texto": "¿Qué operador se usa para la suma en la mayoría de los lenguajes de programación?",
+      "options": ["-", "*", "+"],
+      "correct_answer": "+"
+    },
+    {
+      "texto": "¿Qué estructura de control permite tomar decisiones?",
+      "options": ["if", "for", "while"],
+      "correct_answer": "if"
+    },
+    {
+      "texto": "¿Cuál es el resultado de 5 % 2 en Python?",
+      "options": ["1", "2", "0"],
+      "correct_answer": "1"
+    },
+    {
+      "texto": "¿Qué tipo de dato usarías para almacenar 'Hola Mundo'?",
+      "options": ["int", "string", "bool"],
+      "correct_answer": "string"
+    },
+    {
+      "texto": "¿Cuál de los siguientes es un comentario en Python?",
+      "options": ["// Esto es un comentario", "# Esto es un comentario", "<!-- Esto es un comentario -->"],
+      "correct_answer": "# Esto es un comentario"
+    }
+  ]
+}
